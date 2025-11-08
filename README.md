@@ -136,41 +136,40 @@ Keypebble uses a modern Python packaging layout (pyproject.toml + src/ structure
 
 ### Typical development loop
 
-    ```bash
-    # Run linters and tests
-    ruff check src tests
-    black --check src tests
-    pytest -v
+```bash
+# Run linters and tests
+ruff check src tests
+black --check src tests
+pytest -v
 
-    # Rebuild distributable artifacts
-    python -m build
+# Rebuild distributable artifacts
+python -m build
 
-    # Test the built wheel
-    pip install dist/keypebble-0.1.0-py3-none-any.whl
-    keypebble
-    ```
+# Test the built wheel
+pip install dist/keypebble-0.1.0-py3-none-any.whl
+keypebble
+```
 
+Your build artifacts are stored under dist/:
 
-    Your build artifacts are stored under dist/:
-
-    ```bash
-    dist/
-    keypebble-0.1.0.tar.gz
-    keypebble-0.1.0-py3-none-any.whl
-    ```
+```bash
+dist/
+keypebble-0.1.0.tar.gz
+keypebble-0.1.0-py3-none-any.whl
+```
 
 ### Common cleanup and checks
 
-    ```bash
-    # Remove old build artifacts
-    rm -rf build dist src/*.egg-info
+```bash
+# Remove old build artifacts
+rm -rf build dist src/*.egg-info
 
-    # Validate project metadata
-    validate-pyproject pyproject.toml
+# Validate project metadata
+validate-pyproject pyproject.toml
 
-    # Sort pyproject.toml keys
-    toml-sort --in-place pyproject.toml
-    ```
+# Sort pyproject.toml keys
+toml-sort --in-place pyproject.toml
+```
 ---
 
 ## Future Roadmap
