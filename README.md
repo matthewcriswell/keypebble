@@ -137,7 +137,7 @@ Prerequisites:
     keypebble
     # → Hello from Keypebble!
     ```
----
+
 ### Typical development loop
 
     ```bash
