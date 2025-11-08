@@ -1,6 +1,8 @@
 # Keypebble
 
-**Keypebble** is a lightweight token issuing service inspired by OpenStack’s Keystone — designed to be the “SQLite of Keystone.”   It provides simple, self-contained authentication token issuance for local, edge, or development environments without requiring an external identity service.
+**Keypebble** is a lightweight token issuing service that provides simple, self-contained authentication for local, edge, and development environments—without requiring an external identity system.
+
+Loosely inspired by OpenStack’s Keystone in practice and by SQLite in spirit, Keypebble aims to help projects start on solid footing with secure, stateless, token-based authorization.
 
 ---
 
@@ -25,7 +27,6 @@
 - Security awareness: Follow established JWT best practices (explicit algorithms, issuer/audience validation, short TTLs).  
 - Extensibility: Architecture that can later grow to include JWE, Fernet, or persistent backends.
 - Observability: Include built-in RED metrics and health checks from the start.
-
 
 ---
 
@@ -113,6 +114,3 @@ allowed_custom_claims:
 ## License
 Licensed under the Apache License, Version 2.0.
 See the LICENSE file.
-
-## Acknowledgments
-Keypebble draws conceptual inspiration from OpenStack Keystone, but aims to deliver a lightweight, developer-friendly alternative for standalone or embedded use cases.
