@@ -107,10 +107,6 @@ allowed_custom_claims:
 Keypebble uses a modern Python packaging layout (pyproject.toml + src/ structure) with an editable install for local development.
 
 ### Setup 
-Prerequisites:
-* Python 3.11+
-* pip ≥ 23 and virtualenv or venv
-* Git access to this repository
 
 1. Clone and create a virtual environment
 
@@ -154,7 +150,9 @@ Prerequisites:
     keypebble
     ```
 
+
     Your build artifacts are stored under dist/:
+
     ```bash
     dist/
     keypebble-0.1.0.tar.gz
@@ -162,6 +160,7 @@ Prerequisites:
     ```
 
 ### Common cleanup and checks
+
     ```bash
     # Remove old build artifacts
     rm -rf build dist src/*.egg-info
