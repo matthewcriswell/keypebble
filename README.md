@@ -103,16 +103,16 @@ allowed_custom_claims:
 ```
 
 ## Future Roadmap
--- JWE and Fernet token support
--- Persistent datastore (SQLite or Postgres)
--- Falcon backend for high-performance mode
--- Integration tests and OpenAPI spec generation
--- GitHub Actions CI / PyPI publishing
--- CLI for key rotation and token inspection
+* JWE and Fernet token support
+* Persistent datastore (SQLite or Postgres)
+* Falcon backend for high-performance mode
+* Integration tests and OpenAPI spec generation
+* GitHub Actions CI / PyPI publishing
+* CLI for key rotation and token inspection
 
 ## License
 Licensed under the Apache License, Version 2.0.
-See the LICENSE file for details.
+See the LICENSE file.
 
 ## Acknowledgments
 Keypebble draws conceptual inspiration from OpenStack Keystone, but aims to deliver a lightweight, developer-friendly alternative for standalone or embedded use cases.
