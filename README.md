@@ -10,8 +10,8 @@ Loosely inspired by OpenStack’s Keystone in practice and by SQLite in spirit, 
 | Area | Decision |
 |------|-----------|
 | **Language / Runtime** | Python 3.11+ |
-| **Framework** | [Flask](https://flask.palletsprojects.com/) for early iterations (may evolve toward Falcon later) |
-| **Data Model** | Standard-library [`dataclasses`](https://docs.python.org/3/library/dataclasses.html) — avoiding third-party validation frameworks initially |
+| **Framework** | [Flask](https://flask.palletsprojects.com/) for early iterations (may evolve toward [Falcon](https://falcon.readthedocs.io/en/stable/) later) |
+| **Data Model** | Standard-library [`dataclasses`](https://docs.python.org/3/library/dataclasses.html) — avoiding third-party frameworks initially |
 | **Config Format** | YAML (`example-config.yaml`) for readability and easy gitops |
 | **Token Types** | JWT (initially HS256 / RS256), with long-term goals to explore JWE and Fernet |
 | **Packaging** | `pyproject.toml` + setuptools, `src/` layout, wheel/distribution ready |
@@ -21,10 +21,10 @@ Loosely inspired by OpenStack’s Keystone in practice and by SQLite in spirit, 
 ---
 
 ## Goals
-- Simplicity first: Focus on correctness and transparency before performance or complexity.  
-- Durability: Stick to well-understood, standard-library primitives wherever possible.  
+- Security: Follow established JWT best practices (explicit algorithms, issuer/audience validation, short TTLs). 
+- Simplicity: Focus on correctness and transparency before performance or complexity. Stick to well-understood, standard-library primitives wherever possible. 
+- Simplicity: Be easy to understand and predictable. Stick to well-understood, standard-library primitives wherever possible.  
 - Ease of distribution: Installable via `pip install .` or as a minimal Docker image.  
-- Security awareness: Follow established JWT best practices (explicit algorithms, issuer/audience validation, short TTLs).  
 - Extensibility: Architecture that can later grow to include JWE, Fernet, or persistent backends.
 - Observability: Include built-in RED metrics and health checks from the start.
 
