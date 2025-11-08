@@ -118,6 +118,7 @@ See the LICENSE file.
 
 Keypebble uses a modern Python packaging layout (pyproject.toml + src/ structure) with an editable install for local development.
 
+### Setup 
 Prerequisites:
 * Python 3.11+
 * pip ≥ 23 and virtualenv or venv
@@ -149,37 +150,37 @@ Prerequisites:
     # → Hello from Keypebble!
     ```
 
-3. Typical development loop
+### Typical development loop
 
-```bash
-# Run linters and tests
-ruff check src tests
-black --check src tests
-pytest -v
+    ```bash
+    # Run linters and tests
+    ruff check src tests
+    black --check src tests
+    pytest -v
 
-# Rebuild distributable artifacts
-python -m build
+    # Rebuild distributable artifacts
+    python -m build
 
-# Test the built wheel
-pip install dist/keypebble-0.1.0-py3-none-any.whl
-keypebble
-```
+    # Test the built wheel
+    pip install dist/keypebble-0.1.0-py3-none-any.whl
+    keypebble
+    ```
 
-Your build artifacts are stored under dist/:
-```bash
-dist/
-  keypebble-0.1.0.tar.gz
-  keypebble-0.1.0-py3-none-any.whl
-```
+    Your build artifacts are stored under dist/:
+    ```bash
+    dist/
+    keypebble-0.1.0.tar.gz
+    keypebble-0.1.0-py3-none-any.whl
+    ```
 
-4. Common cleanup and checks
-```bash
-# Remove old build artifacts
-rm -rf build dist src/*.egg-info
+### Common cleanup and checks
+    ```bash
+    # Remove old build artifacts
+    rm -rf build dist src/*.egg-info
 
-# Validate project metadata
-validate-pyproject pyproject.toml
+    # Validate project metadata
+    validate-pyproject pyproject.toml
 
-# Sort pyproject.toml keys
-toml-sort --in-place pyproject.toml
-```
+    # Sort pyproject.toml keys
+    toml-sort --in-place pyproject.toml
+    ```
