@@ -101,6 +101,76 @@ allowed_custom_claims:
   - scope
   - roles
 ```
+---
+## Development
+
+Keypebble uses a modern Python packaging layout (pyproject.toml + src/ structure) with an editable install for local development.
+
+### Setup 
+
+1. Clone and create a virtual environment
+
+    ```bash
+    git clone git@github.com:matthewcriswell/keypebble.git
+    cd keypebble
+    python3.11 -m venv .venv
+    source .venv/bin/activate
+    python -m pip install --upgrade pip
+    ```
+
+2. Install in editable mode with dev dependencies
+
+    ```bash
+    pip install -e ".[dev]"
+    ```
+    This:
+    * Installs all runtime and developer dependencies
+    * Links the src/keypebble package into your environment
+    * Exposes the CLI command keypebble
+
+    Run it to verify:
+    ```
+    keypebble
+    # → Hello from Keypebble!
+    ```
+
+### Typical development loop
+
+```bash
+# Run linters and tests
+ruff check src tests
+black --check src tests
+pytest -v
+
+# Rebuild distributable artifacts
+python -m build
+
+# Test the built wheel
+pip install dist/keypebble-0.1.0-py3-none-any.whl
+keypebble
+```
+
+Your build artifacts are stored under dist/:
+
+```bash
+dist/
+keypebble-0.1.0.tar.gz
+keypebble-0.1.0-py3-none-any.whl
+```
+
+### Common cleanup and checks
+
+```bash
+# Remove old build artifacts
+rm -rf build dist src/*.egg-info
+
+# Validate project metadata
+validate-pyproject pyproject.toml
+
+# Sort pyproject.toml keys
+toml-sort --in-place pyproject.toml
+```
+---
 
 ## Future Roadmap
 * JWE and Fernet token support
