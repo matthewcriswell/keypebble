@@ -1,7 +1,6 @@
 # Keypebble
 
-**Keypebble** is a lightweight token issuing service inspired by OpenStack’s Keystone — designed to be the “SQLite of Keystone.”  
-It provides simple, self-contained authentication token issuance for local, edge, or development environments without requiring an external identity service.
+**Keypebble** is a lightweight token issuing service inspired by OpenStack’s Keystone — designed to be the “SQLite of Keystone.”   It provides simple, self-contained authentication token issuance for local, edge, or development environments without requiring an external identity service.
 
 ---
 
@@ -10,11 +9,11 @@ It provides simple, self-contained authentication token issuance for local, edge
 |------|-----------|
 | **Language / Runtime** | Python 3.11+ |
 | **Framework** | [Flask](https://flask.palletsprojects.com/) for early iterations (may evolve toward Falcon later) |
-| **Data Model** | Standard-library [`dataclasses`](https://docs.python.org/3/library/dataclasses.html) — no third-party validation frameworks initially |
-| **Config Format** | YAML (`example-config.yaml`) for readability and easy override |
+| **Data Model** | Standard-library [`dataclasses`](https://docs.python.org/3/library/dataclasses.html) — avoiding third-party validation frameworks initially |
+| **Config Format** | YAML (`example-config.yaml`) for readability and easy gitops |
 | **Token Types** | JWT (initially HS256 / RS256), with long-term goals to explore JWE and Fernet |
 | **Packaging** | `pyproject.toml` + setuptools, `src/` layout, wheel/distribution ready |
-| **Metrics** | Prometheus-compatible RED metrics (`Rate`, `Errors`, `Duration`) exposed at `/metrics` |
+| **Metrics** | OpenMetrics RED metrics (`Rate`, `Errors`, `Duration`) exposed at `/metrics` |
 | **License** | Apache 2.0 — permissive, business-friendly |
 
 ---
@@ -104,12 +103,12 @@ allowed_custom_claims:
 ```
 
 ## Future Roadmap
- Optional JWE and Fernet token support
- Persistent datastore (SQLite or Postgres)
- Falcon backend for high-performance mode
- Integration tests and OpenAPI spec generation
- GitHub Actions CI / PyPI publishing
- CLI for key rotation and token inspection
+-- JWE and Fernet token support
+-- Persistent datastore (SQLite or Postgres)
+-- Falcon backend for high-performance mode
+-- Integration tests and OpenAPI spec generation
+-- GitHub Actions CI / PyPI publishing
+-- CLI for key rotation and token inspection
 
 ## License
 Licensed under the Apache License, Version 2.0.
