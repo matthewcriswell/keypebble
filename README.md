@@ -21,8 +21,7 @@ Loosely inspired by OpenStack’s Keystone in practice and by SQLite in spirit, 
 ---
 
 ## Goals
-- Security: Follow established JWT best practices (explicit algorithms, issuer/audience validation, short TTLs). 
-- Simplicity: Focus on correctness and transparency before performance or complexity. Stick to well-understood, standard-library primitives wherever possible. 
+- Security: Follow established JWT best practices (explicit algorithms, issuer/audience validation, short TTLs). Focus on correctness and transparency before performance or complexity. 
 - Simplicity: Be easy to understand and predictable. Stick to well-understood, standard-library primitives wherever possible.  
 - Ease of distribution: Installable via `pip install .` or as a minimal Docker image.  
 - Extensibility: Architecture that can later grow to include JWE, Fernet, or persistent backends.
