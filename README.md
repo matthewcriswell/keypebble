@@ -35,6 +35,7 @@ It provides simple, self-contained authentication token issuance for local, edge
 
 ## 🧱 Project Layout
 
+```bash
 keypebble/
 ├─ src/
 │ └─ keypebble/
@@ -51,7 +52,7 @@ keypebble/
 ├─ Dockerfile
 ├─ README.md
 └─ LICENSE
-
+```
 
 ---
 
