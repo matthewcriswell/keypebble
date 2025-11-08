@@ -5,4 +5,39 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "keypebble"
 version = "0.1.0"
+description = "Lightweight token issuing service for local, edge, and development environments."
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{ name = "Matt C." }]
 requires-python = ">=3.11"
+keywords = ["authentication", "jwt", "flask", "security", "edge", "token"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent"
+]
+dependencies = [
+  "flask>=3.0",
+  "pyjwt>=2.8",
+  "pyyaml>=6.0",
+  "prometheus_client>=0.20"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "requests",
+  "build",
+  "black",
+  "ruff",
+  "validate-pyproject",
+  "toml-sort",
+]
+
+[project.scripts]
+keypebble = "keypebble.main:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
