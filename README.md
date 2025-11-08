@@ -113,3 +113,15 @@ allowed_custom_claims:
 ## License
 Licensed under the Apache License, Version 2.0.
 See the LICENSE file.
+
+## Development
+
+Configuration your local environment for development:
+```bash
+git clone git@github.com:matthewcriswell/keypebble.git
+cd keypebble
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+pytest --version && ruff --version && black --version
+```
