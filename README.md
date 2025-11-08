@@ -101,19 +101,7 @@ allowed_custom_claims:
   - scope
   - roles
 ```
-
-## Future Roadmap
-* JWE and Fernet token support
-* Persistent datastore (SQLite or Postgres)
-* Falcon backend for high-performance mode
-* Integration tests and OpenAPI spec generation
-* GitHub Actions CI / PyPI publishing
-* CLI for key rotation and token inspection
-
-## License
-Licensed under the Apache License, Version 2.0.
-See the LICENSE file.
-
+---
 ## Development
 
 Keypebble uses a modern Python packaging layout (pyproject.toml + src/ structure) with an editable install for local development.
@@ -149,7 +137,7 @@ Prerequisites:
     keypebble
     # → Hello from Keypebble!
     ```
-
+---
 ### Typical development loop
 
     ```bash
@@ -184,3 +172,16 @@ Prerequisites:
     # Sort pyproject.toml keys
     toml-sort --in-place pyproject.toml
     ```
+---
+
+## Future Roadmap
+* JWE and Fernet token support
+* Persistent datastore (SQLite or Postgres)
+* Falcon backend for high-performance mode
+* Integration tests and OpenAPI spec generation
+* GitHub Actions CI / PyPI publishing
+* CLI for key rotation and token inspection
+
+## License
+Licensed under the Apache License, Version 2.0.
+See the LICENSE file.
