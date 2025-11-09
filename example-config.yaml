@@ -1,0 +1,7 @@
+issuer: "https://keypebble.local"
+audience: "keypebble-edge"
+default_ttl_seconds: 3600
+hs256_secret: "change-me"
+
+static_claims:
+  scope: "controller:read controller:write"

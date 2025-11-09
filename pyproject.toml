@@ -31,6 +31,7 @@ dev = [
   "ruff",
   "validate-pyproject",
   "toml-sort",
+  "pre-commit"
 ]
 
 [project.scripts]
@@ -41,3 +42,31 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-exclude = ["build", "dist", ".venv"]
+
+[tool.ruff.lint]
+# Enable common rule families
+select = ["E", "F", "I"]   # Errors, pyflakes, import sorting
+ignore = ["E501"]          # Let Black handle line length
+
+[tool.ruff.format]
+# Keep compatible with Black
+quote-style = "double"
+indent-style = "space"

@@ -21,9 +21,9 @@ Loosely inspired by OpenStack’s Keystone in practice and by SQLite in spirit, 
 ---
 
 ## Goals
-- Security: Follow established JWT best practices (explicit algorithms, issuer/audience validation, short TTLs). Focus on correctness and transparency before performance or complexity. 
-- Simplicity: Be easy to understand and predictable. Stick to well-understood, standard-library primitives wherever possible.  
-- Ease of distribution: Installable via `pip install .` or as a minimal Docker image.  
+- Security: Follow established JWT best practices (explicit algorithms, issuer/audience validation, short TTLs). Focus on correctness and transparency before performance or complexity.
+- Simplicity: Be easy to understand and predictable. Stick to well-understood, standard-library primitives wherever possible.
+- Ease of distribution: Installable via `pip install .` or as a minimal Docker image.
 - Extensibility: Architecture that can later grow to include JWE, Fernet, or persistent backends.
 - Observability: Include built-in RED metrics and health checks from the start.
 
@@ -106,7 +106,7 @@ allowed_custom_claims:
 
 Keypebble uses a modern Python packaging layout (pyproject.toml + src/ structure) with an editable install for local development.
 
-### Setup 
+### Setup
 
 1. Clone and create a virtual environment
 
@@ -136,40 +136,38 @@ Keypebble uses a modern Python packaging layout (pyproject.toml + src/ structure
 
 ### Typical development loop
 
-```bash
-# Run linters and tests
-ruff check src tests
-black --check src tests
-pytest -v
-
-# Rebuild distributable artifacts
-python -m build
-
-# Test the built wheel
-pip install dist/keypebble-0.1.0-py3-none-any.whl
-keypebble
-```
-
-Your build artifacts are stored under dist/:
+Keypebble includes a simple Makefile to standardize common development tasks.
 
 ```bash
-dist/
-keypebble-0.1.0.tar.gz
-keypebble-0.1.0-py3-none-any.whl
+# Auto-format and lint code
+make fmt
+
+# Run linters only
+make lint
+
+# Run all tests
+make test
+
+# Run full pre-commit suite on all files
+make check
+
+# Clean build and cache artifacts
+make clean
 ```
 
-### Common cleanup and checks
-
+Typical loop before committing:
 ```bash
-# Remove old build artifacts
-rm -rf build dist src/*.egg-info
-
-# Validate project metadata
-validate-pyproject pyproject.toml
-
-# Sort pyproject.toml keys
-toml-sort --in-place pyproject.toml
+make fmt test
+git add -A
+git commit -m "describe your change"
 ```
+
+You can also run all checks at once:
+```bash
+make check
+```
+These commands ensure consistent formatting (via Black), linting (via Ruff), and test coverage (pytest) before each commit.
+
 ---
 
 ## Future Roadmap
