@@ -13,5 +13,7 @@ test:
 check:
 	pre-commit run --all-files
 
+all: fmt test check
+
 clean:
 	rm -rf .pytest_cache .ruff_cache build dist *.egg-info
