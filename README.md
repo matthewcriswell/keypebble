@@ -21,9 +21,9 @@ Loosely inspired by OpenStack’s Keystone in practice and by SQLite in spirit, 
 ---
 
 ## Goals
-- Security: Follow established JWT best practices (explicit algorithms, issuer/audience validation, short TTLs). Focus on correctness and transparency before performance or complexity. 
-- Simplicity: Be easy to understand and predictable. Stick to well-understood, standard-library primitives wherever possible.  
-- Ease of distribution: Installable via `pip install .` or as a minimal Docker image.  
+- Security: Follow established JWT best practices (explicit algorithms, issuer/audience validation, short TTLs). Focus on correctness and transparency before performance or complexity.
+- Simplicity: Be easy to understand and predictable. Stick to well-understood, standard-library primitives wherever possible.
+- Ease of distribution: Installable via `pip install .` or as a minimal Docker image.
 - Extensibility: Architecture that can later grow to include JWE, Fernet, or persistent backends.
 - Observability: Include built-in RED metrics and health checks from the start.
 
@@ -106,7 +106,7 @@ allowed_custom_claims:
 
 Keypebble uses a modern Python packaging layout (pyproject.toml + src/ structure) with an editable install for local development.
 
-### Setup 
+### Setup
 
 1. Clone and create a virtual environment
 
