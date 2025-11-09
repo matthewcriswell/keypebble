@@ -1,5 +1,4 @@
-def main():
-    print("Hello from Keypebble!")
+from keypebble.cli import main
 
 if __name__ == "__main__":
     main()
