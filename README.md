@@ -138,9 +138,7 @@ Keypebble uses a modern Python packaging layout (pyproject.toml + src/ structure
 
 ```bash
 # Run linters and tests
-ruff check src tests
-black --check src tests
-pytest -v
+black src tests && ruff check src tests --fix && pytest -q
 
 # Rebuild distributable artifacts
 python -m build
