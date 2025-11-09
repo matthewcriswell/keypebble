@@ -1,5 +1,6 @@
 import argparse
 import json
+
 from keypebble.config import load_config
 from keypebble.core import issue_token
 
@@ -26,7 +27,9 @@ def build_parser():
     p_issue.set_defaults(func=cmd_issue)
 
     # keypebble serve
-    p_serve = subparsers.add_parser("serve", help="Run Keypebble service mode (not implemented)")
+    p_serve = subparsers.add_parser(
+        "serve", help="Run Keypebble service mode (not implemented)"
+    )
     p_serve.add_argument("--config", required=True, help="Path to YAML configuration")
     p_serve.set_defaults(func=cmd_serve)
 

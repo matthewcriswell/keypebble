@@ -1,6 +1,8 @@
+from pathlib import Path
+
 import jwt
 import pytest
-from pathlib import Path
+
 from keypebble.core import issue_token
 
 
@@ -13,7 +15,9 @@ def test_issue_token_basic():
         "default_ttl_seconds": 60,
     }
     token = issue_token(cfg, {"sub": "foo"})
-    decoded = jwt.decode(token, "abc123", algorithms=["HS256"], audience="test-audience")
+    decoded = jwt.decode(
+        token, "abc123", algorithms=["HS256"], audience="test-audience"
+    )
     assert decoded["sub"] == "foo"
     assert decoded["iss"] == "test-issuer"
 
@@ -38,7 +42,9 @@ def test_hs256_secret_path_loading(tmp_path: Path):
     }
 
     token = issue_token(cfg, {"sub": "bar"})
-    decoded = jwt.decode(token, "abc123", algorithms=["HS256"], audience="test-audience")
+    decoded = jwt.decode(
+        token, "abc123", algorithms=["HS256"], audience="test-audience"
+    )
     assert decoded["sub"] == "bar"
     assert decoded["aud"] == "test-audience"
 
@@ -51,5 +57,7 @@ def test_empty_claims_does_not_break():
         "hs256_secret": "abc123",
     }
     token = issue_token(cfg)
-    decoded = jwt.decode(token, "abc123", algorithms=["HS256"], audience="test-audience")
+    decoded = jwt.decode(
+        token, "abc123", algorithms=["HS256"], audience="test-audience"
+    )
     assert decoded["iss"] == "test-issuer"

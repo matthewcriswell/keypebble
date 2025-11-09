@@ -1,6 +1,7 @@
-import jwt
 from datetime import datetime, timedelta
 from pathlib import Path
+
+import jwt
 
 
 def _load_secret(config: dict) -> str:
