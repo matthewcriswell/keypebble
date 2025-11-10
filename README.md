@@ -51,6 +51,46 @@ keypebble/
 └─ LICENSE
 ```
 
+```
+keypebble/
+├── src/
+│   └── keypebble/
+│       ├── __init__.py
+│       ├── main.py          # CLI entrypoint (can also launch Flask app)
+│       ├── service/         # Runtime service layer
+│       │   ├── __init__.py
+│       │   └── app.py       # Flask app factory and routes
+│       ├── core/            # Core reusable logic
+│       │   ├── __init__.py
+│       │   ├── signing.py   # JWT signing + verification (formerly signing.py)
+│       │   ├── claims.py    # ClaimBuilder helper for extracting request data
+│       │   └── metrics.py   # Prometheus RED metrics
+│       ├── config.py        # YAML / ENV config loader
+│       └── schemas.py       # Dataclasses / Pydantic models for requests & responses
+│
+├── docs/
+│   ├── index.md             # Documentation entry point
+│   ├── token-profile.md     # JWT claim specification
+│   ├── architecture.md      # High-level module overview
+│   └── roadmap.md           # Milestones and next-phase plans
+│
+├── examples/
+│   └── example-config.yaml  # Sample configuration file
+│
+├── tests/
+│   ├── conftest.py          # Shared pytest fixtures (Flask app, config, etc.)
+│   ├── test_claims.py
+│   ├── test_token_decode.py
+│   ├── test_v2_token.py
+│   └── test_issue.py
+│
+├── pyproject.toml
+├── Dockerfile
+├── README.md
+├── LICENSE
+└── Makefile
+```
+
 ---
 
 ## Packaging & Distribution
