@@ -24,6 +24,22 @@ def auth():
     return jsonify({"token": token, "claims": body}), 200
 
 
+def build_access_claim(scope_str: str | None):
+    if not scope_str:
+        return []
+    try:
+        type_, name, actions = scope_str.split(":", 2)
+        return [
+            {
+                "type": type_,
+                "name": name,
+                "actions": actions.split(","),
+            }
+        ]
+    except ValueError:
+        return []
+
+
 @bp.route("/v2/token", methods=["GET"])
 def v2_token():
     """Prototype Docker-style registry token endpoint."""
@@ -31,6 +47,7 @@ def v2_token():
         "service": "docker-registry",
         "scope": "$.query.scope",
         "sub": "$.query.account",
+        "access": lambda req: build_access_claim(req.args.get("scope")),
     }
     claims = ClaimBuilder().build(request, mapping)
     token = issue_token(current_app.config, claims)
