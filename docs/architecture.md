@@ -1,6 +1,6 @@
 # Keypebble Architecture Overview
 
-Keypebble is a lightweight token-issuing service designed for local, edge, and development environments.  
+Keypebble is a lightweight token-issuing service designed for local, edge, and development environments.
 It exposes a simple REST API that maps request data into cryptographically signed tokens.
 
 ---
@@ -100,4 +100,3 @@ tests/
  ├── test_v2_token.py
  └── test_token_decode.py
 ```
-

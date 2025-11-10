@@ -1,6 +1,6 @@
 # Keypebble Token Profile
 
-**Issuer:** `https://keypebble.local`  
+**Issuer:** `https://keypebble.local`
 **Audience:** Service consuming the token (e.g., Docker registry, edge controller)
 
 This document defines the structure and semantics of JWTs issued by Keypebble.
@@ -46,4 +46,3 @@ This document defines the structure and semantics of JWTs issued by Keypebble.
   "exp": 1731272237,
   "iat": 1731271937
 }
-

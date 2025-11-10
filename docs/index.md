@@ -2,7 +2,7 @@
 
 Welcome to the Keypebble project docs.
 
-Keypebble is a lightweight token-issuing service designed for local, edge, and development environments.  
+Keypebble is a lightweight token-issuing service designed for local, edge, and development environments.
 It provides simple, self-contained JWT issuance without requiring an external identity system — inspired by OpenStack Keystone in concept and SQLite in spirit.
 
 ---

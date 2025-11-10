@@ -31,64 +31,45 @@ Loosely inspired by OpenStack’s Keystone in practice and by SQLite in spirit, 
 
 ## Project Layout
 
-```bash
-keypebble/
-├─ src/
-│ └─ keypebble/
-│ ├─ init.py
-│ ├─ main.py # CLI / Flask entrypoint
-│ ├─ app.py # Flask app factory and routes
-│ ├─ config.py # YAML config loader
-│ ├─ signing.py # JWT signing logic
-│ ├─ schemas.py # dataclasses for requests / responses
-│ └─ metrics.py # Prometheus RED metrics
-├─ example-config.yaml
-├─ tests/
-│ └─ test_issue.py
-├─ pyproject.toml
-├─ Dockerfile
-├─ README.md
-└─ LICENSE
-```
-
 ```
 keypebble/
+├── docs/
+│   ├── index.md
+│   ├── architecture.md
+│   └── token-profile.md
+│
+├── examples/
+│   └── example-config.yaml
+│
 ├── src/
 │   └── keypebble/
 │       ├── __init__.py
-│       ├── main.py          # CLI entrypoint (can also launch Flask app)
-│       ├── service/         # Runtime service layer
+│       │
+│       ├── cli.py                 # CLI interface
+│       ├── main.py                # unified entrypoint
+│       ├── config.py              # YAML/ENV config loader
+│       │
+│       ├── core/
 │       │   ├── __init__.py
-│       │   └── app.py       # Flask app factory and routes
-│       ├── core/            # Core reusable logic
-│       │   ├── __init__.py
-│       │   ├── signing.py   # JWT signing + verification (formerly signing.py)
-│       │   ├── claims.py    # ClaimBuilder helper for extracting request data
-│       │   └── metrics.py   # Prometheus RED metrics
-│       ├── config.py        # YAML / ENV config loader
-│       └── schemas.py       # Dataclasses / Pydantic models for requests & responses
-│
-├── docs/
-│   ├── index.md             # Documentation entry point
-│   ├── token-profile.md     # JWT claim specification
-│   ├── architecture.md      # High-level module overview
-│   └── roadmap.md           # Milestones and next-phase plans
-│
-├── examples/
-│   └── example-config.yaml  # Sample configuration file
+│       │   ├── claims.py          # ClaimBuilder
+│       │   └── token.py           # issue_token / decode_token
+│       │
+│       └── service/
+│           ├── __init__.py
+│           └── app.py             # Flask app factory and routes
 │
 ├── tests/
-│   ├── conftest.py          # Shared pytest fixtures (Flask app, config, etc.)
+│   ├── conftest.py
 │   ├── test_claims.py
+│   ├── test_issue.py
+│   ├── test_service.py
 │   ├── test_token_decode.py
-│   ├── test_v2_token.py
-│   └── test_issue.py
+│   └── test_v2_token.py
 │
+├── Makefile
 ├── pyproject.toml
-├── Dockerfile
 ├── README.md
-├── LICENSE
-└── Makefile
+└── LICENSE
 ```
 
 ---
@@ -105,7 +86,7 @@ pip install -e .
 python -m build
 
 # run locally
-keypebble --config example-config.yaml
+keypebble --config examples/example-config.yaml
 ```
 
 Minimal Docker image:
