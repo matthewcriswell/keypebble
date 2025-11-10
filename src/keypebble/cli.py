@@ -3,6 +3,7 @@ import json
 
 from keypebble.config import load_config
 from keypebble.core import issue_token
+from keypebble.service.app import create_app
 
 
 def cmd_issue(args):
@@ -13,7 +14,12 @@ def cmd_issue(args):
 
 
 def cmd_serve(args):
-    print("Service mode not implemented yet.")
+    config = load_config(args.config)
+    app = create_app(config)
+    svc = config.get("service", {})
+    host = svc.get("host", "0.0.0.0")
+    port = svc.get("port", 8080)
+    app.run(host=host, port=port)
 
 
 def build_parser():
