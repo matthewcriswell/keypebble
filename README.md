@@ -31,24 +31,45 @@ Loosely inspired by OpenStack’s Keystone in practice and by SQLite in spirit, 
 
 ## Project Layout
 
-```bash
+```
 keypebble/
-├─ src/
-│ └─ keypebble/
-│ ├─ init.py
-│ ├─ main.py # CLI / Flask entrypoint
-│ ├─ app.py # Flask app factory and routes
-│ ├─ config.py # YAML config loader
-│ ├─ signing.py # JWT signing logic
-│ ├─ schemas.py # dataclasses for requests / responses
-│ └─ metrics.py # Prometheus RED metrics
-├─ example-config.yaml
-├─ tests/
-│ └─ test_issue.py
-├─ pyproject.toml
-├─ Dockerfile
-├─ README.md
-└─ LICENSE
+├── docs/
+│   ├── index.md
+│   ├── architecture.md
+│   └── token-profile.md
+│
+├── examples/
+│   └── example-config.yaml
+│
+├── src/
+│   └── keypebble/
+│       ├── __init__.py
+│       │
+│       ├── cli.py                 # CLI interface
+│       ├── main.py                # unified entrypoint
+│       ├── config.py              # YAML/ENV config loader
+│       │
+│       ├── core/
+│       │   ├── __init__.py
+│       │   ├── claims.py          # ClaimBuilder
+│       │   └── token.py           # issue_token / decode_token
+│       │
+│       └── service/
+│           ├── __init__.py
+│           └── app.py             # Flask app factory and routes
+│
+├── tests/
+│   ├── conftest.py
+│   ├── test_claims.py
+│   ├── test_issue.py
+│   ├── test_service.py
+│   ├── test_token_decode.py
+│   └── test_v2_token.py
+│
+├── Makefile
+├── pyproject.toml
+├── README.md
+└── LICENSE
 ```
 
 ---
@@ -65,7 +86,7 @@ pip install -e .
 python -m build
 
 # run locally
-keypebble --config example-config.yaml
+keypebble issue --config examples/example-config.yaml
 ```
 
 Minimal Docker image:
@@ -131,7 +152,8 @@ Keypebble uses a modern Python packaging layout (pyproject.toml + src/ structure
     Run it to verify:
     ```
     keypebble
-    # → Hello from Keypebble!
+    # usage: keypebble [-h] {issue,serve} ...
+    # keypebble: error: the following arguments are required: command
     ```
 
 ### Typical development loop

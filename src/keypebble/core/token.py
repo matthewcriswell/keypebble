@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any, Dict
 
 import jwt
 
@@ -29,3 +30,18 @@ def issue_token(config: dict, custom_claims: dict | None = None) -> str:
     }
 
     return jwt.encode(payload, secret, algorithm="HS256")
+
+
+def decode_token(config: dict, token: str) -> Dict[str, Any]:
+    """Decode and verify a JWT using the configured secret."""
+    secret = config.get("hs256_secret")
+    if not secret:
+        raise ValueError("Missing hs256_secret in configuration.")
+
+    try:
+        payload = jwt.decode(
+            token, secret, algorithms=["HS256"], audience=config.get("audience")
+        )
+    except jwt.InvalidTokenError as e:
+        raise ValueError(f"Invalid token: {e}") from e
+    return payload
