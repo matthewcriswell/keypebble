@@ -86,7 +86,7 @@ pip install -e .
 python -m build
 
 # run locally
-keypebble --config examples/example-config.yaml
+keypebble issue --config examples/example-config.yaml
 ```
 
 Minimal Docker image:
@@ -152,7 +152,8 @@ Keypebble uses a modern Python packaging layout (pyproject.toml + src/ structure
     Run it to verify:
     ```
     keypebble
-    # → Hello from Keypebble!
+    # usage: keypebble [-h] {issue,serve} ...
+    # keypebble: error: the following arguments are required: command
     ```
 
 ### Typical development loop
