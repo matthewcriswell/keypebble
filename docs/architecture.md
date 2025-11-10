@@ -51,7 +51,7 @@ Each mapping entry defines how a single claim is resolved:
 | **Callable** | `lambda req: {...}` | Computes structured or dynamic claims |
 
 This flexible design follows a simple **“triage builder” pattern**:
-1. Classify each mapping value by kind (callable → selector → literal).  
+1. Classify each mapping value by kind (callable → selector → literal).
 2. Handle it deterministically with no fall-through or overwriting.
 
 #### Example: Dynamic `access` claim
@@ -106,9 +106,9 @@ Client ──▶ /v2/token ──▶ ClaimBuilder ──▶ issue_token()
 ```
 
 Example flow:
-1. Client requests  
+1. Client requests
    `/v2/token?account=tester&scope=repository:demo/payload:pull`
-2. `ClaimBuilder` extracts query params and static values into a claims dict,  
+2. `ClaimBuilder` extracts query params and static values into a claims dict,
    including an `access` list built from the `scope` string.
 3. `issue_token()` signs the claims into a JWT.
 4. The service responds with both the encoded token and raw claims.
@@ -148,4 +148,3 @@ tests/
  ├── test_token_decode.py    # Round-trip encode/decode
  └── test_issue.py           # Token issuance edge cases
 ```
-

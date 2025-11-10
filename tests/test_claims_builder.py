@@ -1,6 +1,7 @@
 """Unit tests for keypebble.core.claims.ClaimBuilder"""
 
 from types import SimpleNamespace
+
 from keypebble.core.claims import ClaimBuilder
 
 
@@ -51,7 +52,9 @@ def test_mixed_types_together():
         "body_field": "$.body.value",
         "computed": lambda req: req.args.get("x", "missing"),
     }
-    req = make_request(query={"account": "user123", "x": "42"}, body={"value": "from-body"})
+    req = make_request(
+        query={"account": "user123", "x": "42"}, body={"value": "from-body"}
+    )
     claims = builder.build(req, mapping)
     assert claims == {
         "service": "docker-registry",
@@ -77,4 +80,3 @@ def test_unmatched_prefix_is_treated_as_literal():
     claims = builder.build(make_request(), mapping)
     # no prefix handler matched → treated literally
     assert claims["foo"] == "$.unknown.value"
-

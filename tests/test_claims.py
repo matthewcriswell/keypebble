@@ -1,5 +1,6 @@
 import pytest
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
+
 from keypebble.core.claims import ClaimBuilder
 
 
@@ -66,4 +67,3 @@ def test_invalid_prefix_is_literal(client):
 
     resp = client.get("/invalid")
     assert resp.get_json() == {"x": "$.foo.bar"}
-
