@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+import time
 from pathlib import Path
 from typing import Any, Dict
 
@@ -17,14 +17,15 @@ def _load_secret(config: dict) -> str:
 def issue_token(config: dict, custom_claims: dict | None = None) -> str:
     """Issue a signed JWT using HS256."""
     secret = _load_secret(config)
-    now = datetime.utcnow()
+    now = int(time.time())
     ttl = config.get("default_ttl_seconds", 3600)
 
     payload = {
-        "iss": config["issuer"],
-        "aud": config["audience"],
+        "iss": config.get("issuer", "https://keypebble.local"),
+        "aud": config.get("audience", "keypebble-edge"),
         "iat": now,
-        "exp": now + timedelta(seconds=ttl),
+        "nbf": now,
+        "exp": now + ttl,
         **config.get("static_claims", {}),
         **(custom_claims or {}),
     }

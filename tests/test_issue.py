@@ -61,3 +61,37 @@ def test_empty_claims_does_not_break():
         token, "abc123", algorithms=["HS256"], audience="test-audience"
     )
     assert decoded["iss"] == "test-issuer"
+
+
+def test_issue_token_registered_claims(config):
+    """Verify that issue_token emits RFC 7519-compliant standard claims."""
+    # Arrange
+    config.update(
+        {
+            "issuer": "https://keypebble.test",
+            "default_ttl_seconds": 120,
+            "audience": "example-audience",
+        }
+    )
+    custom_claims = {"sub": "tester"}
+
+    # Act
+    token = issue_token(config, custom_claims)
+    payload = jwt.decode(
+        token, config["_secret"], algorithms=["HS256"], options={"verify_aud": False}
+    )  # disable PyJWT audience validation
+
+    # Assert
+    # --- Required standard claims ---
+    for claim in ["iss", "iat", "exp", "aud"]:
+        assert claim in payload
+
+    # --- Correct issuer and TTL math ---
+    assert payload["iss"] == "https://keypebble.test"
+    assert payload["exp"] - payload["iat"] == 120
+
+    # --- Audience claim should appear if configured ---
+    assert payload["aud"] == "example-audience"
+
+    # --- Custom claim should override correctly ---
+    assert payload["sub"] == "tester"

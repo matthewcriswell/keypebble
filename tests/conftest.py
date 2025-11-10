@@ -17,3 +17,12 @@ def app():
 @pytest.fixture
 def client(app):
     return app.test_client()
+
+
+@pytest.fixture
+def config(app):
+    """Expose app.config as a mutable dict for core tests."""
+    c = dict(app.config)
+    # add a predictable key for _load_secret()
+    c["_secret"] = c.get("hs256_secret", "test-secret")
+    return c
