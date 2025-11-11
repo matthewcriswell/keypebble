@@ -26,18 +26,23 @@ def auth():
     return jsonify({"token": token, "claims": body}), 200
 
 
-def build_access_claim(scope_str: str | None):
-    if not scope_str:
+def build_access_claim(scopes_list: list | None, access_claim: list):
+    if not scopes_list:
         return []
+
     try:
-        type_, name, actions = scope_str.split(":", 2)
-        return [
-            {
-                "type": type_,
-                "name": name,
-                "actions": actions.split(","),
-            }
-        ]
+        # output = list()
+        for scope_str in scopes_list:
+            scope_list = scope_str.split(":")
+            access_claim.append(
+                {
+                    "type": scope_list[0],
+                    "name": scope_list[1],
+                    "actions": scope_list[-1].split(","),
+                }
+            )
+
+        # return output
     except ValueError:
         return []
 
@@ -47,14 +52,18 @@ def v2_token():
     """Prototype Docker-style registry token endpoint."""
     now = datetime.now(timezone.utc)
     ttl = current_app.config.get("default_ttl_seconds", 3600)
+    access_claim = []
+    if request.args.getlist("scope"):
+        build_access_claim(request.args.getlist("scope"), access_claim)
+    if request.headers.get("X-Scopes"):
+        build_access_claim(request.headers.get("X-Scopes").split(" "), access_claim)
     mapping = {
         "service": "$.query.service",
         "scope": "$.query.scope",
         "sub": "$.query.account",
-        "access": lambda req: build_access_claim(req.args.get("scope")),
+        "access": access_claim,
     }
     claims = ClaimBuilder().build(request, mapping)
-    # claims = {k: v for k, v in claims.items() if v is not None}
     # Get identity from nginx
     user = request.headers.get("X-Authenticated-User")
     if not user:

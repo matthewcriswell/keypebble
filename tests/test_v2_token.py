@@ -63,3 +63,79 @@ def test_v2_token_ttl_math(client, app):
     diff = payload["exp"] - payload["iat"]
     assert abs(diff - ttl) <= 1
     assert abs(payload["iat"] - start) < 5
+
+
+def test_token_with_multiple_query_scopes(client):
+    """Supports multiple ?scope= query params."""
+    headers = {"X-Authenticated-User": "tester"}
+    resp = client.get(
+        "/v2/token?service=test-registry"
+        "&scope=repository:foo/bar:pull"
+        "&scope=repository:foo/baz:pull,push",
+        headers=headers,
+    )
+    data = resp.get_json()
+    assert resp.status_code == 200
+    assert data["claims"]["access"] == [
+        {"type": "repository", "name": "foo/bar", "actions": ["pull"]},
+        {"type": "repository", "name": "foo/baz", "actions": ["pull", "push"]},
+    ]
+
+
+def test_token_with_header_scope(client):
+    """Supports X-Scopes header (space-delimited)."""
+    resp = client.get(
+        "/v2/token?service=test-registry",
+        headers={
+            "X-Authenticated-User": "tester",
+            "X-Scopes": "repository:foo/baz:pull,push",
+        },
+    )
+    data = resp.get_json()
+    assert resp.status_code == 200
+    assert data["claims"]["access"] == [
+        {"type": "repository", "name": "foo/baz", "actions": ["pull", "push"]},
+    ]
+
+
+def test_token_with_header_scopes(client):
+    """Supports X-Scopes header (space-delimited)."""
+    resp = client.get(
+        "/v2/token?service=test-registry",
+        headers={
+            "X-Authenticated-User": "tester",
+            "X-Scopes": ("repository:foo/bar:pull " "repository:foo/baz:pull,push"),
+        },
+    )
+    data = resp.get_json()
+    assert resp.status_code == 200
+    assert data["claims"]["access"] == [
+        {"type": "repository", "name": "foo/bar", "actions": ["pull"]},
+        {"type": "repository", "name": "foo/baz", "actions": ["pull", "push"]},
+    ]
+
+
+def test_token_with_query_and_header_scopes(client):
+    """Merges query and header scopes."""
+    resp = client.get(
+        "/v2/token?service=test-registry&scope=repository:foo/bar:pull,push",
+        headers={
+            "X-Authenticated-User": "tester",
+            "X-Scopes": "repository:foo/baz:pull",
+        },
+    )
+    data = resp.get_json()
+    assert resp.status_code == 200
+    assert data["claims"]["access"] == [
+        {"type": "repository", "name": "foo/bar", "actions": ["pull", "push"]},
+        {"type": "repository", "name": "foo/baz", "actions": ["pull"]},
+    ]
+
+
+def test_token_with_no_scopes(client):
+    """Handles missing scope parameters gracefully."""
+    headers = {"X-Authenticated-User": "tester"}
+    resp = client.get("/v2/token?service=test-registry", headers=headers)
+    data = resp.get_json()
+    assert resp.status_code == 200
+    assert data["claims"]["access"] == []
