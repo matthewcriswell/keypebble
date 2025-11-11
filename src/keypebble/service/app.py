@@ -48,13 +48,13 @@ def v2_token():
     now = datetime.now(timezone.utc)
     ttl = current_app.config.get("default_ttl_seconds", 3600)
     mapping = {
-        "service": "docker-registry",
+        "service": "$.query.service",
         "scope": "$.query.scope",
         "sub": "$.query.account",
         "access": lambda req: build_access_claim(req.args.get("scope")),
     }
     claims = ClaimBuilder().build(request, mapping)
-    #claims = {k: v for k, v in claims.items() if v is not None}
+    # claims = {k: v for k, v in claims.items() if v is not None}
     # Get identity from nginx
     user = request.headers.get("X-Authenticated-User")
     if not user:
