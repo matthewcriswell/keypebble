@@ -39,4 +39,3 @@ users:
       - build-cache
       - release-artifacts
     <<: *read_write
-

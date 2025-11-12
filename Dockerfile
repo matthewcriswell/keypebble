@@ -24,4 +24,3 @@ EXPOSE 8080
 
 # Define default entrypoint or command
 CMD ["keypebble"]
-

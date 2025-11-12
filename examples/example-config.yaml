@@ -11,3 +11,7 @@ hs256_secret: "change-me"
 #static_claims:
 #  environment: "dev"
 #  project: "keypebble"
+#
+## Add RS256 keys
+#algorithm: "RS256"
+#rs256_private_key: "/etc/keypebble/keypebble-private.pem"
