@@ -35,7 +35,7 @@ dev = [
 ]
 
 [project.scripts]
-keypebble = "keypebble.main:main"
+keypebble = "keypebble.cli:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

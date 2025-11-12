@@ -1,11 +1,13 @@
 service:
   host: "0.0.0.0"
-  port: "8080"
+  port: 8080
 
 issuer: "https://keypebble.local"
 audience: "keypebble-edge"
 default_ttl_seconds: 3600
 hs256_secret: "change-me"
 
-static_claims:
-  scope: "controller:read controller:write"
+## Optional global metadata to embed in all tokens
+#static_claims:
+#  environment: "dev"
+#  project: "keypebble"

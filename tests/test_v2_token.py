@@ -139,3 +139,25 @@ def test_token_with_no_scopes(client):
     data = resp.get_json()
     assert resp.status_code == 200
     assert data["claims"]["access"] == []
+
+
+def test_token_with_multiple_query_scopes_str(client):
+    """Ensures multiple ?scope= query params are flattened into a spec-compliant space-delimited string."""
+    headers = {"X-Authenticated-User": "tester"}
+    resp = client.get(
+        "/v2/token?service=test-registry"
+        "&scope=repository:foo/bar:pull"
+        "&scope=repository:foo/baz:pull,push",
+        headers=headers,
+    )
+    assert resp.status_code == 200
+
+    data = resp.get_json()
+    scope_str = data["claims"]["scope"]
+
+    # Verify it's a single string, not a list
+    assert isinstance(scope_str, str)
+
+    # Verify both scopes appear correctly in order and separated by a space
+    expected = "repository:foo/bar:pull repository:foo/baz:pull,push"
+    assert scope_str == expected, f"Unexpected scope string: {scope_str!r}"

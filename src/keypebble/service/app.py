@@ -5,6 +5,7 @@ from flask import Blueprint, Flask, current_app, jsonify, make_response, request
 
 from keypebble.core import issue_token
 from keypebble.core.claims import ClaimBuilder
+from keypebble.core.policy import PolicyHandler
 
 bp = Blueprint("basic", __name__)
 
@@ -52,14 +53,17 @@ def v2_token():
     """Prototype Docker-style registry token endpoint."""
     now = datetime.now(timezone.utc)
     ttl = current_app.config.get("default_ttl_seconds", 3600)
+    scopes = []
     access_claim = []
     if request.args.getlist("scope"):
         build_access_claim(request.args.getlist("scope"), access_claim)
+        scopes += request.args.getlist("scope")
     if request.headers.get("X-Scopes"):
         build_access_claim(request.headers.get("X-Scopes").split(" "), access_claim)
+        scopes += request.args.getlist("scope")
     mapping = {
         "service": "$.query.service",
-        "scope": "$.query.scope",
+        "scope": " ".join(scopes),
         "sub": "$.query.account",
         "access": access_claim,
     }
@@ -91,9 +95,15 @@ def v2_token():
     )
 
 
-def create_app(config: dict | None = None):
+def create_app(config: dict | None = None, policy_path: str | None = None):
     """Flask application factory."""
     app = Flask(__name__)
     app.config.update(config or {})
+    if policy_path:
+        app.config["POLICY_PATH"] = policy_path
+        app.policy_handler = PolicyHandler(policy_path)
+    else:
+        app.policy_handler = None
     app.register_blueprint(bp)
+
     return app
