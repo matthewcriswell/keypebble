@@ -162,6 +162,7 @@ def test_token_with_multiple_query_scopes_str(client):
     expected = "repository:foo/bar:pull repository:foo/baz:pull,push"
     assert scope_str == expected, f"Unexpected scope string: {scope_str!r}"
 
+
 def test_v2_token_with_policy_enforcement(client, tmp_path, app):
     """If a policy file is configured, enforce allowed access (mocked)."""
     # Create a mock policy file and attach to app
@@ -170,12 +171,14 @@ def test_v2_token_with_policy_enforcement(client, tmp_path, app):
 
     # Inject a fake handler into the app for testing
     from keypebble.core.policy import PolicyHandler
+
     handler = PolicyHandler(policy_path)
     app.policy_handler = handler
 
     # Patch handler.allowed_access to return a known value
     def fake_allowed_access(user, scopes):
         return [{"type": "repository", "name": "secure/app", "actions": ["pull"]}]
+
     app.policy_handler.allowed_access = fake_allowed_access
 
     resp = client.get(
@@ -189,7 +192,6 @@ def test_v2_token_with_policy_enforcement(client, tmp_path, app):
     ]
     # Ensure original scopes were preserved in string
     assert "repository:secure/app:pull,push" in data["claims"]["scope"]
-
 
 
 def test_v2_token_policy_generate_mode(client, app):
@@ -210,10 +212,10 @@ def test_v2_token_policy_generate_mode(client, app):
     assert "repository:demo/app:pull" in data["claims"]["scope"]
 
 
-
 def test_v2_token_policy_but_no_scopes(client, tmp_path, app):
     """If a policy exists but no scopes are provided, access should be empty."""
     from keypebble.core.policy import PolicyHandler
+
     policy_file = tmp_path / "empty_policy.yaml"
     policy_file.write_text("users: {}")
     app.policy_handler = PolicyHandler(policy_file)
@@ -224,3 +226,38 @@ def test_v2_token_policy_but_no_scopes(client, tmp_path, app):
     assert data["claims"]["access"] == []
     assert data["claims"]["scope"] == ""
 
+
+def test_v2_token_unknown_user_returns_403(client, tmp_path, app):
+    """If the user is not found in the policy, return 403 with an error message."""
+    # Create a minimal valid policy file
+    policy_path = tmp_path / "policy.yaml"
+    policy_path.write_text(
+        """
+    users:
+      alice:
+        namespace: "alice-space"
+        repos: ["app-api"]
+        actions: ["pull"]
+    """
+    )
+
+    # Attach handler so the app thinks policy is active
+    from keypebble.core.policy import PolicyHandler
+
+    app.policy_handler = PolicyHandler(policy_path)
+    app.config["POLICY_PATH"] = str(policy_path)
+
+    # Call with an unknown user
+    resp = client.get(
+        "/v2/token?service=test-registry",
+        headers={
+            "X-Authenticated-User": "bob",  # not in policy
+            "X-Policy-Generate": "true",
+        },
+    )
+
+    data = resp.get_json()
+    assert resp.status_code == 403
+    assert data["error"] == "unauthorized"
+    assert "not found" in data["message"]
+    assert "bob" in data["message"]

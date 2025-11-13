@@ -1,5 +1,5 @@
 # Start from a lightweight base with Python installed
-FROM python:3.11
+FROM python:3.12
 
 # Set up working directory
 WORKDIR /app

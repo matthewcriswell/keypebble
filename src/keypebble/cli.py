@@ -17,14 +17,28 @@ def cmd_issue(args):
         handler = PolicyHandler(args.policy)
         user = claims.get("sub") or claims.get("user") or "unknown"
 
-        if "scope" not in claims and "access" not in claims:
-            # Generate the full claim set from policy
-            inferred = generator.generate_claims_for(user)
-            claims.update(inferred)
+        # --- Policy generation phase ---
+        if args.generate:
+            # Explicit generation request
+            generated = generator.generate_claims_for(user)
+            claims.update(generated)
 
-        # Filter or validate what we ended up with
-        scopes = claims["scope"].split() if isinstance(claims["scope"], str) else []
-        claims["access"] = handler.allowed_access(user, scopes)
+            # Also build structured access list from generated scopes
+            from keypebble.service.app import build_access_claim
+
+            access_claims = []
+            scopes = claims.get("scope", "").split()
+            build_access_claim(scopes, access_claims)
+            claims["access"] = access_claims
+
+        else:
+            # Normal validation mode
+            if "scope" not in claims and "access" not in claims:
+                inferred = generator.generate_claims_for(user)
+                claims.update(inferred)
+
+            scopes = claims["scope"].split() if isinstance(claims["scope"], str) else []
+            claims["access"] = handler.allowed_access(user, scopes)
 
     token = issue_token(config, claims)
     print(token)

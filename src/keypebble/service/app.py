@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, Flask, current_app, jsonify, make_response, request
 
 from keypebble.core import issue_token
-from keypebble.core.policy import PolicyHandler
+from keypebble.core.policy import PolicyGenerator, PolicyHandler
 
 bp = Blueprint("basic", __name__)
 
@@ -67,37 +67,33 @@ def v2_token():
     if request.headers.get("X-Scopes"):
         requested_scopes.extend(request.headers.get("X-Scopes").split())
 
-
-
     # --- 3. Policy enforcement / generation ---
     access_claims = []
     final_scopes = []
     policy_handler = getattr(current_app, "policy_handler", None)
-    
+
     if policy_handler:
         generate_mode = request.headers.get("X-Policy-Generate", "").lower() == "true"
-    
+        policy_path = current_app.config.get("POLICY_PATH")
+
         if generate_mode:
-            # Explicitly requested generation (future or simple mock)
-            access_claims = []
-            build_access_claim(requested_scopes, access_claims)
-            final_scopes = requested_scopes
+            try:
+                generator = PolicyGenerator(policy_path)
+                inferred = generator.generate_claims_for(user)
+            except ValueError as e:
+                return jsonify({"error": "unauthorized", "message": str(e)}), 403
+
+            final_scopes = inferred.get("scope", "").split()
+            build_access_claim(final_scopes, access_claims)
+
         elif requested_scopes:
-            # Normal request with explicit scopes – enforce policy rules
-            access_claims = policy_handler.allowed_access(
-                request.headers.get("X-Authenticated-User"), requested_scopes
-            )
+            access_claims = policy_handler.allowed_access(user, requested_scopes)
             final_scopes = requested_scopes
         else:
-            # No scopes at all
             access_claims, final_scopes = [], []
     else:
-        # No policy handler at all – same behavior as before
-        access_claims = []
         build_access_claim(requested_scopes, access_claims)
         final_scopes = requested_scopes
-
-
 
     # --- 4. Token payload ---
     claims = {
