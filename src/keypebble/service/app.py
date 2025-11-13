@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, Flask, current_app, jsonify, make_response, request
 
 from keypebble.core import issue_token
-from keypebble.core.claims import ClaimBuilder
+from keypebble.core.policy import PolicyGenerator, PolicyHandler
 
 bp = Blueprint("basic", __name__)
 
@@ -26,48 +26,91 @@ def auth():
     return jsonify({"token": token, "claims": body}), 200
 
 
-def build_access_claim(scope_str: str | None):
-    if not scope_str:
+def build_access_claim(scopes_list: list | None, access_claim: list):
+    if not scopes_list:
         return []
+
     try:
-        type_, name, actions = scope_str.split(":", 2)
-        return [
-            {
-                "type": type_,
-                "name": name,
-                "actions": actions.split(","),
-            }
-        ]
+        # output = list()
+        for scope_str in scopes_list:
+            scope_list = scope_str.split(":")
+            access_claim.append(
+                {
+                    "type": scope_list[0],
+                    "name": scope_list[1],
+                    "actions": scope_list[-1].split(","),
+                }
+            )
+
+        # return output
     except ValueError:
         return []
 
 
 @bp.route("/v2/token", methods=["GET"])
 def v2_token():
-    """Prototype Docker-style registry token endpoint."""
+    """Docker-style registry token endpoint with optional policy enforcement and generation."""
     now = datetime.now(timezone.utc)
     ttl = current_app.config.get("default_ttl_seconds", 3600)
-    mapping = {
-        "service": "docker-registry",
-        "scope": "$.query.scope",
-        "sub": "$.query.account",
-        "access": lambda req: build_access_claim(req.args.get("scope")),
-    }
-    claims = ClaimBuilder().build(request, mapping)
-    #claims = {k: v for k, v in claims.items() if v is not None}
-    # Get identity from nginx
+
+    # --- 1. Identity ---
     user = request.headers.get("X-Authenticated-User")
     if not user:
-        # This means nginx didn’t authenticate the user first
         resp = make_response(jsonify({"error": "unauthenticated"}), 401)
         resp.headers["WWW-Authenticate"] = 'Basic realm="Keypebble"'
         return resp
 
-    claims["sub"] = user
-    service = request.args.get("service")
-    if service:
-        claims["aud"] = service
+    # --- 2. Requested scopes ---
+    requested_scopes = []
+    if request.args.getlist("scope"):
+        requested_scopes.extend(request.args.getlist("scope"))
+    if request.headers.get("X-Scopes"):
+        requested_scopes.extend(request.headers.get("X-Scopes").split())
+
+    # --- 3. Policy enforcement / generation ---
+    access_claims = []
+    final_scopes = []
+    policy_handler = getattr(current_app, "policy_handler", None)
+
+    if policy_handler:
+        generate_mode = request.headers.get("X-Policy-Generate", "").lower() == "true"
+        policy_path = current_app.config.get("POLICY_PATH")
+
+        if generate_mode:
+            try:
+                generator = PolicyGenerator(policy_path)
+                inferred = generator.generate_claims_for(user)
+            except ValueError as e:
+                return jsonify({"error": "unauthorized", "message": str(e)}), 403
+
+            final_scopes = inferred.get("scope", "").split()
+            build_access_claim(final_scopes, access_claims)
+
+        elif requested_scopes:
+            access_claims = policy_handler.allowed_access(user, requested_scopes)
+            final_scopes = requested_scopes
+        else:
+            access_claims, final_scopes = [], []
+    else:
+        build_access_claim(requested_scopes, access_claims)
+        final_scopes = requested_scopes
+
+    # --- 4. Token payload ---
+    claims = {
+        "iss": current_app.config.get("issuer", "https://keypebble.local"),
+        "aud": request.args.get("service")
+        or current_app.config.get("audience", "docker-registry"),
+        "iat": int(now.timestamp()),
+        "nbf": int(now.timestamp()),
+        "exp": int(now.timestamp()) + ttl,
+        "sub": user,
+        "service": request.args.get("service"),
+        "scope": " ".join(final_scopes),
+        "access": access_claims,
+    }
+
     token = issue_token(current_app.config, claims)
+
     return (
         jsonify(
             {
@@ -82,9 +125,15 @@ def v2_token():
     )
 
 
-def create_app(config: dict | None = None):
+def create_app(config: dict | None = None, policy_path: str | None = None):
     """Flask application factory."""
     app = Flask(__name__)
     app.config.update(config or {})
+    if policy_path:
+        app.config["POLICY_PATH"] = policy_path
+        app.policy_handler = PolicyHandler(policy_path)
+    else:
+        app.policy_handler = None
     app.register_blueprint(bp)
+
     return app

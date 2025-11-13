@@ -1,0 +1,10 @@
+service:
+  host: "0.0.0.0"
+  port: 8080
+
+issuer: "registry.example.com"
+audience: "registry.exampole.com"
+default_ttl_seconds: 3600
+
+algorithm: "RS256"
+rs256_private_key: "/etc/keypebble/keypebble-private.pem"

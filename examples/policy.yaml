@@ -1,0 +1,41 @@
+# Keypebble Policy Configuration Example
+# --------------------------------------
+# This file defines which users can access which repositories,
+# under which namespaces, and what actions (pull/push) they may perform.
+#
+# Anchors (&) and aliases (*) can be used to avoid repetition.
+
+# Common repository lists for reuse
+common_repos: &common_repos
+  - app-api
+  - app-ui
+  - app-db
+  - app-analytics
+
+# Action sets for reuse
+pull_only: &pull_only
+  actions: ["pull"]
+
+read_write: &read_write
+  actions: ["pull", "push"]
+
+# User-specific policy definitions
+users:
+  alice:
+    namespace: "alice-space"
+    repos: *common_repos
+    <<: *pull_only
+
+  bob:
+    namespace: "bob-space"
+    repos:
+      - app-api
+      - app-ui
+    <<: *read_write
+
+  ci-bot:
+    namespace: "shared"
+    repos:
+      - build-cache
+      - release-artifacts
+    <<: *read_write
