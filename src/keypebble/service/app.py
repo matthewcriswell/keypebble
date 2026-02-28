@@ -126,6 +126,80 @@ def v2_token():
     )
 
 
+def build_ksa_claims(
+    namespace: str,
+    service_account_name: str,
+    audiences: list[str],
+    config: dict,
+    now: datetime,
+    ttl: int,
+) -> dict:
+    """Assemble JWT claims for a Kubernetes service account token request."""
+    now_ts = int(now.timestamp())
+    return {
+        "iss": config.get("issuer", "https://keypebble.local"),
+        "aud": audiences,
+        "iat": now_ts,
+        "nbf": now_ts,
+        "exp": now_ts + ttl,
+        "sub": f"system:serviceaccount:{namespace}:{service_account_name}",
+        "kubernetes.io": {
+            "namespace": namespace,
+            "serviceaccount": {
+                "name": service_account_name,
+            },
+        },
+    }
+
+
+@bp.route(
+    "/apis/authentication.k8s.io/v1/namespaces/<namespace>/serviceaccounts/<name>/token",
+    methods=["POST"],
+)
+def ksa_token(namespace: str, name: str):
+    """Kubernetes-style service account token endpoint."""
+    body = request.get_json(silent=True)
+    if not body:
+        return jsonify({"error": "invalid or missing request body"}), 400
+
+    spec = body.get("spec", {})
+    audiences = spec.get("audiences")
+    if not audiences:
+        return jsonify({"error": "spec.audiences is required"}), 400
+
+    ttl = int(
+        spec.get("expirationSeconds")
+        or current_app.config.get("default_ttl_seconds", 3600)
+    )
+    now = datetime.now(timezone.utc)
+
+    claims = build_ksa_claims(
+        namespace=namespace,
+        service_account_name=name,
+        audiences=audiences,
+        config=dict(current_app.config),
+        now=now,
+        ttl=ttl,
+    )
+
+    token = issue_token(current_app.config, claims)
+    expiry = datetime.fromtimestamp(claims["exp"], tz=timezone.utc)
+
+    return (
+        jsonify(
+            {
+                "apiVersion": "authentication.k8s.io/v1",
+                "kind": "TokenRequest",
+                "status": {
+                    "token": token,
+                    "expirationTimestamp": expiry.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
+            }
+        ),
+        200,
+    )
+
+
 def create_app(config: dict | None = None, policy_path: str | None = None):
     """Flask application factory."""
     app = Flask(__name__)
