@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from keypebble.core.policy import PolicyHandler
+from keypebble.core.policy import Policy
 
 
 def make_policy(tmp_path: Path, data: dict) -> Path:
@@ -24,7 +24,7 @@ def test_allowed_access_for_valid_namespace_and_repo(tmp_path):
         }
     }
     policy_path = make_policy(tmp_path, policy_data)
-    handler = PolicyHandler(str(policy_path))
+    handler = Policy.from_file(str(policy_path))
 
     scopes = ["repository:registry.example.com/alice-space/app-api:pull"]
     result = handler.allowed_access("alice", scopes)
@@ -48,7 +48,7 @@ def test_denied_if_namespace_does_not_match(tmp_path):
         }
     }
     policy_path = make_policy(tmp_path, policy_data)
-    handler = PolicyHandler(str(policy_path))
+    handler = Policy.from_file(str(policy_path))
 
     scopes = ["repository:registry.example.com/bob-space/app-api:pull"]
     result = handler.allowed_access("alice", scopes)
@@ -67,7 +67,7 @@ def test_denied_if_repo_not_listed(tmp_path):
         }
     }
     policy_path = make_policy(tmp_path, policy_data)
-    handler = PolicyHandler(str(policy_path))
+    handler = Policy.from_file(str(policy_path))
 
     scopes = ["repository:registry.example.com/alice-space/app-api:pull"]
     result = handler.allowed_access("alice", scopes)
@@ -86,7 +86,7 @@ def test_action_is_filtered_to_allowed_set(tmp_path):
         }
     }
     policy_path = make_policy(tmp_path, policy_data)
-    handler = PolicyHandler(str(policy_path))
+    handler = Policy.from_file(str(policy_path))
 
     scopes = ["repository:registry.example.com/alice-space/app-api:pull,push"]
     result = handler.allowed_access("alice", scopes)
@@ -107,7 +107,7 @@ def test_unknown_user_returns_empty_access_list(tmp_path):
         }
     }
     policy_path = make_policy(tmp_path, policy_data)
-    handler = PolicyHandler(str(policy_path))
+    handler = Policy.from_file(str(policy_path))
 
     scopes = ["repository:registry.example.com/alice-space/app-api:pull"]
     result = handler.allowed_access("unknown", scopes)

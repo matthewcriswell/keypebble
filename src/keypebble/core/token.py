@@ -55,6 +55,10 @@ def issue_token(config: dict, custom_claims: dict | None = None) -> str:
     now = int(time.time())
     ttl = int(config.get("default_ttl_seconds", 3600))
 
+    allowed = config.get("allowed_custom_claims")
+    if allowed is not None and custom_claims:
+        custom_claims = {k: v for k, v in custom_claims.items() if k in allowed}
+
     payload = {
         "iss": config.get("issuer", "https://keypebble.local"),
         "aud": config.get("audience", "keypebble-edge"),

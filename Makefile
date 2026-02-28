@@ -1,17 +1,26 @@
-.PHONY: fmt lint test check clean
+.PHONY: fmt lint test check clean setup
+
+VENV   := .venv
+PYTHON := python3.11
+BIN    := $(VENV)/bin
+
+setup:
+	$(PYTHON) -m venv $(VENV)
+	$(BIN)/pip install --upgrade pip
+	$(BIN)/pip install -e ".[dev]"
 
 fmt:
-	black src tests
-	ruff check --fix src tests
+	$(BIN)/black src tests
+	$(BIN)/ruff check --fix src tests
 
 lint:
-	ruff check src tests
+	$(BIN)/ruff check src tests
 
 test:
-	pytest -q
+	$(BIN)/pytest -q
 
 check:
-	pre-commit run --all-files
+	$(BIN)/pre-commit run --all-files
 
 all: fmt test check
 

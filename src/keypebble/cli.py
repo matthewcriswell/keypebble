@@ -3,7 +3,7 @@ import json
 
 from keypebble.config import load_config
 from keypebble.core import issue_token
-from keypebble.core.policy import PolicyGenerator, PolicyHandler
+from keypebble.core.policy import Policy, parse_scopes
 from keypebble.service.app import create_app
 
 
@@ -13,32 +13,27 @@ def cmd_issue(args):
     claims = json.loads(args.claims) if args.claims else {}
 
     if args.policy:
-        generator = PolicyGenerator(args.policy)
-        handler = PolicyHandler(args.policy)
+        policy = Policy.from_file(args.policy)
         user = claims.get("sub") or claims.get("user") or "unknown"
 
         # --- Policy generation phase ---
         if args.generate:
             # Explicit generation request
-            generated = generator.generate_claims_for(user)
+            generated = policy.generate_for(user)
             claims.update(generated)
 
             # Also build structured access list from generated scopes
-            from keypebble.service.app import build_access_claim
-
-            access_claims = []
             scopes = claims.get("scope", "").split()
-            build_access_claim(scopes, access_claims)
-            claims["access"] = access_claims
+            claims["access"] = parse_scopes(scopes)
 
         else:
             # Normal validation mode
             if "scope" not in claims and "access" not in claims:
-                inferred = generator.generate_claims_for(user)
+                inferred = policy.generate_for(user)
                 claims.update(inferred)
 
             scopes = claims["scope"].split() if isinstance(claims["scope"], str) else []
-            claims["access"] = handler.allowed_access(user, scopes)
+            claims["access"] = policy.allowed_access(user, scopes)
 
     token = issue_token(config, claims)
     print(token)
