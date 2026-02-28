@@ -185,18 +185,13 @@ make clean
 
 ### Code style
 
-Formatting is handled by **Black** (line length 88) and linting by **Ruff** (rules `E`, `F`, `I`; `E501` suppressed). Both are configured in `pyproject.toml`. Always run `make fmt test` before committing — `make fmt` applies Black and Ruff auto-fixes, and `make lint` will catch anything that needs manual attention (e.g. unsorted imports, mid-file imports).
+Formatting is handled by **Black** (line length 88) and linting by **Ruff** (rules `E`, `F`, `I`; `E501` suppressed). Both are configured in `pyproject.toml`. Always run `make all` before committing — it runs `fmt`, `test`, and `check` (pre-commit) in sequence.
 
 Typical loop before committing:
 ```bash
-make fmt test
+make all
 git add -A
 git commit -m "describe your change"
-```
-
-You can also run all checks at once:
-```bash
-make check
 ```
 
 ---

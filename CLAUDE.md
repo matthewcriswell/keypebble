@@ -20,7 +20,7 @@ Formatting and linting are enforced by **Black** and **Ruff** (configured in `py
 - Ruff rule sets: `E` (pycodestyle errors), `F` (Pyflakes), `I` (isort) — `E501` is suppressed (Black owns line length)
 - Quote style: double; indent: spaces
 
-**Always run `make fmt test` before committing.** `make fmt` runs Black then Ruff with `--fix`; `make lint` runs Ruff check-only. A mid-file import or unsorted import block will fail CI via the `I` and `E402` rules.
+**Always run `make all` before committing.** `make all` runs `fmt`, `test`, and `check` (pre-commit) in sequence. `make fmt` runs Black then Ruff with `--fix`; `make lint` runs Ruff check-only. A mid-file import or unsorted import block will fail CI via the `I` and `E402` rules.
 
 ## Running tests
 
