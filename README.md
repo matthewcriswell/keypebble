@@ -130,6 +130,205 @@ allowed_custom_claims:
   - roles
 ```
 ---
+
+## Usage
+
+### Quick start
+
+```bash
+# Install
+pip install .
+
+# Minimal HS256 config
+cat > config.yaml <<EOF
+issuer: "example.com"
+audience: "example.com"
+algorithm: "HS256"
+hs256_secret: "change-me"
+EOF
+
+# Issue a token
+keypebble issue --config config.yaml --claims '{"sub": "alice"}'
+
+# Or run as a service
+keypebble serve --config config.yaml
+```
+
+---
+
+### CLI
+
+#### keypebble issue
+
+Issues a JWT directly from the command line and prints it to stdout.
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--config PATH` | Yes | Path to YAML config file |
+| `--claims JSON` | No | Custom claims as a JSON string |
+| `--policy PATH` | No | Path to policy YAML file |
+| `--generate` | No | Generate all claims from policy (ignores requested scope) |
+
+User identity is resolved from `sub` or `user` in `--claims`, defaulting to `"unknown"`.
+
+```bash
+# Simple token
+keypebble issue --config config.yaml --claims '{"sub": "alice"}'
+
+# With scope
+keypebble issue --config config.yaml \
+  --claims '{"sub": "alice", "scope": "repository:alice-space/app-api:pull"}'
+
+# Policy-filtered scopes (push is stripped if not allowed)
+keypebble issue --config config.yaml --policy policy.yaml \
+  --claims '{"sub": "alice", "scope": "repository:alice-space/app-api:pull,push"}'
+
+# Generate all claims from policy
+keypebble issue --config config.yaml --policy policy.yaml \
+  --generate --claims '{"sub": "alice"}'
+```
+
+#### keypebble serve
+
+Runs keypebble as an HTTP service.
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--config PATH` | Yes | Path to YAML config file |
+| `--policy PATH` | No | Path to policy YAML file (defaults to `/etc/keypebble/policy.yaml`) |
+
+```bash
+keypebble serve --config config.yaml --policy policy.yaml
+```
+
+Bind address and port are read from `service.host` / `service.port` in the config (defaults: `0.0.0.0:8080`).
+
+---
+
+### HTTP endpoints
+
+#### `GET /healthz`
+
+Readiness check.
+
+```
+200 {"status": "ok"}
+```
+
+#### `POST /auth`
+
+Issues a JWT for arbitrary claims.
+
+```bash
+curl -X POST http://localhost:8080/auth \
+  -H "Content-Type: application/json" \
+  -d '{"sub": "alice", "role": "admin"}'
+```
+
+```json
+{"token": "<jwt>", "claims": {"sub": "alice", "role": "admin", ...}}
+```
+
+#### `GET /v2/token`
+
+Docker registry token endpoint with optional policy enforcement.
+
+**Request headers:**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-Authenticated-User` | Yes | User identity; 401 if absent |
+| `X-Policy-Generate` | No | Set to `"true"` to generate claims from policy |
+| `X-Scopes` | No | Space-separated scopes (alternative to `?scope=`) |
+
+**Query parameters:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `service` | Audience override for the issued token |
+| `scope` | Requested scope(s); repeatable |
+
+**Scope format:** `type:name:action1,action2` — e.g. `repository:alice-space/app-api:pull`
+
+**Response (200):**
+
+```json
+{
+  "token": "<jwt>",
+  "expires_in": 3600,
+  "issued_at": "2025-01-01T00:00:00",
+  "claims": {
+    "iss": "registry.example.com",
+    "aud": "registry.example.com",
+    "sub": "alice",
+    "access": [{"type": "repository", "name": "alice-space/app-api", "actions": ["pull"]}]
+  }
+}
+```
+
+**Error responses:** `401` (missing user header), `403` (policy violation / user not found)
+
+**Examples:**
+
+```bash
+# Token with no scope
+curl -H "X-Authenticated-User: alice" \
+  "http://localhost:8080/v2/token?service=registry.example.com"
+
+# Token with scope
+curl -H "X-Authenticated-User: alice" \
+  "http://localhost:8080/v2/token?service=registry.example.com&scope=repository:alice-space/app-api:pull"
+
+# Generate all claims from policy
+curl -H "X-Authenticated-User: alice" -H "X-Policy-Generate: true" \
+  "http://localhost:8080/v2/token?service=registry.example.com"
+```
+
+---
+
+### Policy file
+
+The policy file controls which users can access which repositories and with what actions. Requested scopes are filtered against the policy; `X-Policy-Generate: true` generates the full claim set from the policy without requiring a scope request.
+
+```yaml
+users:
+  alice:
+    namespace: "alice-space"
+    repos: ["app-api", "app-ui"]
+    actions: ["pull"]
+  bob:
+    namespace: "bob-space"
+    repos: ["app-api"]
+    actions: ["pull", "push"]
+```
+
+- `namespace` — Docker namespace; incoming scopes are matched as `registry/<namespace>/<repo>`
+- `repos` — allowed repository names within the namespace
+- `actions` — allowed actions; any actions beyond this list are stripped from the token
+
+See [`examples/policy.yaml`](examples/policy.yaml) for a full example.
+
+---
+
+### Docker Compose example
+
+For a full working Docker registry with token-based authorization — keypebble, nginx (TLS termination + auth proxy), and the distribution registry — see [`examples/docker-compose/`](examples/docker-compose/).
+
+A dev mode (HS256, no certs) lets you test the token endpoint locally without any certificate setup:
+
+```bash
+docker compose \
+  -f examples/docker-compose/docker-compose.yaml \
+  -f examples/docker-compose/keypebble.yaml \
+  -f examples/docker-compose/docker-compose.dev.yaml \
+  up -d
+
+curl -H "X-Authenticated-User: alice" \
+  "http://localhost:8080/v2/token?service=registry.example.com&scope=repository:alice-space/app-api:pull"
+```
+
+---
+
 ## Development
 
 Keypebble uses a modern Python packaging layout (pyproject.toml + src/ structure) with an editable install for local development.
