@@ -1,10 +1,13 @@
+services:
   registry:
     image: ghcr.io/distribution/distribution:3.0.0
     container_name: proxy_registry
     restart: always
+    depends_on:
+      - keypebble
     volumes:
       - /etc/keypebble:/certs:ro
-      - /home/ubuntu/registry:/var/lib/registry
+      - registry_data:/var/lib/registry
     environment:
       REGISTRY_AUTH: token
       REGISTRY_AUTH_TOKEN_REALM: https://registry.example.com/v2/token
@@ -12,3 +15,5 @@
       REGISTRY_AUTH_TOKEN_ISSUER: registry.example.com
       REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE: /certs/rootCA.crt
       REGISTRY_LOG_LEVEL: debug
+    networks:
+      - keypebble_net

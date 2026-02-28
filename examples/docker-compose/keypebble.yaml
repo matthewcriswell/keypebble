@@ -1,5 +1,9 @@
+services:
   keypebble:
     image: keypebble:latest
+    build:
+      context: ../..
+      dockerfile: Dockerfile
     container_name: keypebble
     command: >
       keypebble serve
@@ -9,5 +13,6 @@
       - "8080:8080"
     volumes:
       - /etc/keypebble:/etc/keypebble:ro
-      - ./examples:/examples:ro
     restart: unless-stopped
+    networks:
+      - keypebble_net
