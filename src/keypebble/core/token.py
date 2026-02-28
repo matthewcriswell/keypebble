@@ -49,6 +49,9 @@ def _load_x5c_chain(config: dict) -> list[str] | None:
     return certs or None
 
 
+REGISTERED_CLAIMS = {"iss", "aud", "sub", "iat", "nbf", "exp", "jti"}
+
+
 def issue_token(config: dict, custom_claims: dict | None = None) -> str:
     """Issue a signed JWT using HS256 or RS256, including optional kid/x5c headers."""
     algorithm = config.get("algorithm", "HS256").upper()
@@ -57,7 +60,11 @@ def issue_token(config: dict, custom_claims: dict | None = None) -> str:
 
     allowed = config.get("allowed_custom_claims")
     if allowed is not None and custom_claims:
-        custom_claims = {k: v for k, v in custom_claims.items() if k in allowed}
+        custom_claims = {
+            k: v
+            for k, v in custom_claims.items()
+            if k in allowed or k in REGISTERED_CLAIMS
+        }
 
     payload = {
         "iss": config.get("issuer", "https://keypebble.local"),

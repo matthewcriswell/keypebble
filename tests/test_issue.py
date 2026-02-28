@@ -113,8 +113,8 @@ def test_allowed_custom_claims_filters_disallowed_keys():
     assert "evil" not in decoded
 
 
-def test_allowed_custom_claims_empty_list_strips_all():
-    """An empty allowlist removes all custom claims."""
+def test_allowed_custom_claims_empty_list_strips_non_registered():
+    """An empty allowlist removes non-registered custom claims; registered claims survive."""
     cfg = {
         "issuer": "test-issuer",
         "audience": "test-audience",
@@ -125,7 +125,9 @@ def test_allowed_custom_claims_empty_list_strips_all():
     decoded = jwt.decode(
         token, "abc123", algorithms=["HS256"], audience="test-audience"
     )
-    assert "sub" not in decoded
+    # Registered claim sub is preserved even with an empty allowlist
+    assert decoded["sub"] == "alice"
+    # Non-registered custom claims are stripped
     assert "extra" not in decoded
 
 
@@ -157,3 +159,40 @@ def test_allowed_custom_claims_with_none_custom_claims():
         token, "abc123", algorithms=["HS256"], audience="test-audience"
     )
     assert decoded["iss"] == "test-issuer"
+
+
+def test_aud_list_in_custom_claims_preserved_through_filter():
+    """aud as a list in custom_claims is kept even when allowed_custom_claims is set."""
+    cfg = {
+        "issuer": "test-issuer",
+        "audience": "default-aud",
+        "hs256_secret": "abc123",
+        "allowed_custom_claims": ["sub"],  # aud not in allowlist
+    }
+    audiences = ["https://kubernetes.default.svc", "https://my-api.example.com"]
+    token = issue_token(cfg, {"aud": audiences, "sub": "system:serviceaccount:ns:sa"})
+    decoded = jwt.decode(
+        token, "abc123", algorithms=["HS256"], options={"verify_aud": False}
+    )
+    assert decoded["aud"] == audiences
+    assert decoded["sub"] == "system:serviceaccount:ns:sa"
+
+
+def test_registered_claims_preserved_through_filter():
+    """sub and exp in custom_claims survive an allowed_custom_claims filter."""
+    import time
+
+    cfg = {
+        "issuer": "test-issuer",
+        "audience": "test-audience",
+        "hs256_secret": "abc123",
+        "allowed_custom_claims": [],  # empty allowlist strips non-registered claims
+    }
+    future_exp = int(time.time()) + 9999
+    token = issue_token(cfg, {"sub": "alice", "exp": future_exp, "evil": "payload"})
+    decoded = jwt.decode(
+        token, "abc123", algorithms=["HS256"], audience="test-audience"
+    )
+    assert decoded["sub"] == "alice"
+    assert decoded["exp"] == future_exp
+    assert "evil" not in decoded
