@@ -28,7 +28,7 @@ def test_issue_command_invokes_issue_token(tmp_path):
 
 
 def test_issue_command_applies_policy_if_provided(tmp_path):
-    """Ensure that --policy triggers PolicyHandler.allowed_access."""
+    """Ensure that --policy triggers Policy.allowed_access."""
     cfg_file = tmp_path / "config.yaml"
     policy_file = tmp_path / "policy.yaml"
     cfg_file.write_text("foo: bar")
@@ -42,8 +42,9 @@ def test_issue_command_applies_policy_if_provided(tmp_path):
 
     with (
         patch("keypebble.cli.issue_token", return_value=mock_token) as mock_issue,
-        patch("keypebble.cli.PolicyHandler", return_value=mock_policy) as mock_ph,
+        patch("keypebble.cli.Policy") as mock_policy_class,
     ):
+        mock_policy_class.from_file.return_value = mock_policy
         args = cli.build_parser().parse_args(
             [
                 "issue",
@@ -62,7 +63,7 @@ def test_issue_command_applies_policy_if_provided(tmp_path):
         )
         args.func(args)
 
-    mock_ph.assert_called_once_with(str(policy_file))
+    mock_policy_class.from_file.assert_called_once_with(str(policy_file))
     mock_policy.allowed_access.assert_called_once()
     passed_claims = mock_issue.call_args[0][1]
     assert "access" in passed_claims
@@ -70,16 +71,15 @@ def test_issue_command_applies_policy_if_provided(tmp_path):
 
 
 def test_issue_command_generates_claims_from_policy(tmp_path):
-    """Ensure that --generate uses PolicyGenerator.generate_claims_for."""
+    """Ensure that --generate uses Policy.generate_for."""
     cfg_file = tmp_path / "config.yaml"
     policy_file = tmp_path / "policy.yaml"
     cfg_file.write_text("foo: bar")
     policy_file.write_text("users: {}")
 
     mock_token = "t123"
-    mock_handler = MagicMock()
-    mock_generator = MagicMock()
-    mock_generator.generate_claims_for.return_value = {
+    mock_policy = MagicMock()
+    mock_policy.generate_for.return_value = {
         "sub": "bob",
         "scope": "repository:bob-space/app-api:pull,push",
         "access": [
@@ -93,9 +93,9 @@ def test_issue_command_generates_claims_from_policy(tmp_path):
 
     with (
         patch("keypebble.cli.issue_token", return_value=mock_token) as mock_issue,
-        patch("keypebble.cli.PolicyHandler", return_value=mock_handler),
-        patch("keypebble.cli.PolicyGenerator", return_value=mock_generator),
+        patch("keypebble.cli.Policy") as mock_policy_class,
     ):
+        mock_policy_class.from_file.return_value = mock_policy
         args = cli.build_parser().parse_args(
             [
                 "issue",
@@ -110,7 +110,7 @@ def test_issue_command_generates_claims_from_policy(tmp_path):
         )
         args.func(args)
 
-    mock_generator.generate_claims_for.assert_called_once_with("bob")
+    mock_policy.generate_for.assert_called_once_with("bob")
     passed_claims = mock_issue.call_args[0][1]
     assert passed_claims["sub"] == "bob"
     assert "access" in passed_claims

@@ -10,6 +10,11 @@ class ClaimBuilder:
     (callable, selector, literal) and handle each deterministically.
     The use of `continue` ensures no accidental overwriting or fall-through
     side effects.
+
+    Duck-type protocol for the ``request`` argument:
+      - ``request.args`` — mapping supporting ``.get(key)`` (query parameters)
+      - ``request.method`` — string (HTTP verb, e.g. ``"GET"``)
+      - ``request.get_json(silent=True)`` — returns parsed JSON body dict or ``None``
     """
 
     def build(self, request, mapping):

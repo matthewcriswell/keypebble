@@ -1,26 +1,41 @@
 from pathlib import Path
-from typing import Dict, List
 
 import yaml
 
 
-class PolicyHandler:
-    """Minimal policy reader and enforcer."""
+def parse_scopes(scopes: list[str]) -> list[dict]:
+    """Convert Docker-style scope strings to access dicts.
+    Malformed entries (fewer than 3 colon-separated parts) are skipped.
+    """
+    result = []
+    for scope_str in scopes:
+        parts = scope_str.split(":", 2)
+        if len(parts) < 3:
+            continue
+        type_, name, actions_str = parts
+        actions = [a.strip() for a in actions_str.split(",") if a.strip()]
+        result.append({"type": type_, "name": name, "actions": actions})
+    return result
 
-    def __init__(self, path: str = "/etc/keypebble/policy.yaml"):
-        self.path = Path(path)
 
-    def _load(self) -> Dict:
-        """Always load the policy file fresh."""
-        if not self.path.exists():
-            return {}
-        with self.path.open() as f:
-            return yaml.safe_load(f) or {}
+class Policy:
+    """Unified policy class for access enforcement and claim generation."""
 
-    def allowed_access(self, user: str, scopes: List[str]) -> List[Dict]:
+    def __init__(self, data: dict):
+        self.data = data
+
+    @classmethod
+    def from_file(cls, path: str) -> "Policy":
+        """Load from YAML file. Returns empty Policy if file absent."""
+        p = Path(path)
+        if not p.exists():
+            return cls({})
+        with p.open() as f:
+            return cls(yaml.safe_load(f) or {})
+
+    def allowed_access(self, user: str, scopes: list[str]) -> list[dict]:
         """Filter requested scopes through the user policy."""
-        policy = self._load()
-        user_conf = policy.get("users", {}).get(user)
+        user_conf = self.data.get("users", {}).get(user)
         if not user_conf:
             return []
 
@@ -50,16 +65,9 @@ class PolicyHandler:
                     access.append({"type": type_, "name": name, "actions": permitted})
         return access
 
-
-class PolicyGenerator:
-    """Generate claims from a simple static policy file."""
-
-    def __init__(self, policy_path: str):
-        with open(policy_path, "r") as f:
-            self.policy = yaml.safe_load(f)
-
-    def generate_claims_for(self, user: str) -> dict:
-        users = self.policy.get("users", {})
+    def generate_for(self, user: str) -> dict:
+        """Generate claims for user. Raises ValueError if user not found."""
+        users = self.data.get("users", {})
         entry = users.get(user)
         if not entry:
             raise ValueError(f"User '{user}' not found in policy")
@@ -68,13 +76,10 @@ class PolicyGenerator:
         repos = entry.get("repos", [])
         actions = entry.get("actions", [])
 
-        # Build access entries
         access = [
             {"type": "repository", "name": f"{namespace}/{r}", "actions": actions}
             for r in repos
         ]
-
-        # Build Docker-style scope string
         scopes = " ".join(
             f"repository:{namespace}/{r}:{','.join(actions)}" for r in repos
         )

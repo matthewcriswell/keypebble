@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, Flask, current_app, jsonify, make_response, request
 
 from keypebble.core import issue_token
-from keypebble.core.policy import PolicyGenerator, PolicyHandler
+from keypebble.core.policy import Policy, parse_scopes
 
 bp = Blueprint("basic", __name__)
 
@@ -26,25 +26,45 @@ def auth():
     return jsonify({"token": token, "claims": body}), 200
 
 
-def build_access_claim(scopes_list: list | None, access_claim: list):
-    if not scopes_list:
-        return []
+def build_v2_claims(
+    user: str,
+    requested_scopes: list[str],
+    policy: "Policy | None",
+    policy_path: str | None,
+    generate_mode: bool,
+    config: dict,
+    service_audience: str | None,
+    now: datetime,
+    ttl: int,
+) -> dict:
+    """Assemble JWT claims for a Docker registry token request.
+    Raises ValueError if generate_mode is True and user not in policy.
+    """
+    if policy:
+        if generate_mode:
+            inferred = Policy.from_file(policy_path).generate_for(user)
+            final_scopes = inferred.get("scope", "").split()
+            access_claims = parse_scopes(final_scopes)
+        elif requested_scopes:
+            access_claims = policy.allowed_access(user, requested_scopes)
+            final_scopes = requested_scopes
+        else:
+            access_claims, final_scopes = [], []
+    else:
+        access_claims = parse_scopes(requested_scopes)
+        final_scopes = requested_scopes
 
-    try:
-        # output = list()
-        for scope_str in scopes_list:
-            scope_list = scope_str.split(":")
-            access_claim.append(
-                {
-                    "type": scope_list[0],
-                    "name": scope_list[1],
-                    "actions": scope_list[-1].split(","),
-                }
-            )
-
-        # return output
-    except ValueError:
-        return []
+    return {
+        "iss": config.get("issuer", "https://keypebble.local"),
+        "aud": service_audience or config.get("audience", "docker-registry"),
+        "iat": int(now.timestamp()),
+        "nbf": int(now.timestamp()),
+        "exp": int(now.timestamp()) + ttl,
+        "sub": user,
+        "service": service_audience,
+        "scope": " ".join(final_scopes),
+        "access": access_claims,
+    }
 
 
 @bp.route("/v2/token", methods=["GET"])
@@ -67,47 +87,28 @@ def v2_token():
     if request.headers.get("X-Scopes"):
         requested_scopes.extend(request.headers.get("X-Scopes").split())
 
-    # --- 3. Policy enforcement / generation ---
-    access_claims = []
-    final_scopes = []
-    policy_handler = getattr(current_app, "policy_handler", None)
+    # --- 3. Build claims ---
+    policy = getattr(current_app, "policy_handler", None)
+    policy_path = current_app.config.get("POLICY_PATH")
+    generate_mode = (
+        policy is not None
+        and request.headers.get("X-Policy-Generate", "").lower() == "true"
+    )
 
-    if policy_handler:
-        generate_mode = request.headers.get("X-Policy-Generate", "").lower() == "true"
-        policy_path = current_app.config.get("POLICY_PATH")
-
-        if generate_mode:
-            try:
-                generator = PolicyGenerator(policy_path)
-                inferred = generator.generate_claims_for(user)
-            except ValueError as e:
-                return jsonify({"error": "unauthorized", "message": str(e)}), 403
-
-            final_scopes = inferred.get("scope", "").split()
-            build_access_claim(final_scopes, access_claims)
-
-        elif requested_scopes:
-            access_claims = policy_handler.allowed_access(user, requested_scopes)
-            final_scopes = requested_scopes
-        else:
-            access_claims, final_scopes = [], []
-    else:
-        build_access_claim(requested_scopes, access_claims)
-        final_scopes = requested_scopes
-
-    # --- 4. Token payload ---
-    claims = {
-        "iss": current_app.config.get("issuer", "https://keypebble.local"),
-        "aud": request.args.get("service")
-        or current_app.config.get("audience", "docker-registry"),
-        "iat": int(now.timestamp()),
-        "nbf": int(now.timestamp()),
-        "exp": int(now.timestamp()) + ttl,
-        "sub": user,
-        "service": request.args.get("service"),
-        "scope": " ".join(final_scopes),
-        "access": access_claims,
-    }
+    try:
+        claims = build_v2_claims(
+            user=user,
+            requested_scopes=requested_scopes,
+            policy=policy,
+            policy_path=policy_path,
+            generate_mode=generate_mode,
+            config=current_app.config,
+            service_audience=request.args.get("service"),
+            now=now,
+            ttl=ttl,
+        )
+    except ValueError as e:
+        return jsonify({"error": "unauthorized", "message": str(e)}), 403
 
     token = issue_token(current_app.config, claims)
 
@@ -131,7 +132,7 @@ def create_app(config: dict | None = None, policy_path: str | None = None):
     app.config.update(config or {})
     if policy_path:
         app.config["POLICY_PATH"] = policy_path
-        app.policy_handler = PolicyHandler(policy_path)
+        app.policy_handler = Policy.from_file(policy_path)
     else:
         app.policy_handler = None
     app.register_blueprint(bp)

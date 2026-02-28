@@ -95,3 +95,57 @@ def test_issue_token_registered_claims(config):
 
     # --- Custom claim should override correctly ---
     assert payload["sub"] == "tester"
+
+
+def test_allowed_custom_claims_filters_disallowed_keys():
+    """Disallowed keys are stripped; allowed keys pass through."""
+    cfg = {
+        "issuer": "test-issuer",
+        "audience": "test-audience",
+        "hs256_secret": "abc123",
+        "allowed_custom_claims": ["sub", "edge_id"],
+    }
+    token = issue_token(cfg, {"sub": "alice", "evil": "payload"})
+    decoded = jwt.decode(token, "abc123", algorithms=["HS256"], audience="test-audience")
+    assert decoded["sub"] == "alice"
+    assert "evil" not in decoded
+
+
+def test_allowed_custom_claims_empty_list_strips_all():
+    """An empty allowlist removes all custom claims."""
+    cfg = {
+        "issuer": "test-issuer",
+        "audience": "test-audience",
+        "hs256_secret": "abc123",
+        "allowed_custom_claims": [],
+    }
+    token = issue_token(cfg, {"sub": "alice", "extra": "value"})
+    decoded = jwt.decode(token, "abc123", algorithms=["HS256"], audience="test-audience")
+    assert "sub" not in decoded
+    assert "extra" not in decoded
+
+
+def test_no_allowed_custom_claims_key_passes_all_through():
+    """When allowed_custom_claims is absent, all custom claims are kept."""
+    cfg = {
+        "issuer": "test-issuer",
+        "audience": "test-audience",
+        "hs256_secret": "abc123",
+    }
+    token = issue_token(cfg, {"sub": "alice", "extra": "value"})
+    decoded = jwt.decode(token, "abc123", algorithms=["HS256"], audience="test-audience")
+    assert decoded["sub"] == "alice"
+    assert decoded["extra"] == "value"
+
+
+def test_allowed_custom_claims_with_none_custom_claims():
+    """No error when custom_claims is None and an allowlist is configured."""
+    cfg = {
+        "issuer": "test-issuer",
+        "audience": "test-audience",
+        "hs256_secret": "abc123",
+        "allowed_custom_claims": ["sub"],
+    }
+    token = issue_token(cfg, None)
+    decoded = jwt.decode(token, "abc123", algorithms=["HS256"], audience="test-audience")
+    assert decoded["iss"] == "test-issuer"

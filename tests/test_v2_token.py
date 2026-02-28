@@ -1,6 +1,9 @@
 import time
+from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
 import jwt
+import pytest
 
 
 def _decode(token, app):
@@ -170,9 +173,9 @@ def test_v2_token_with_policy_enforcement(client, tmp_path, app):
     policy_path.write_text("users: {}")
 
     # Inject a fake handler into the app for testing
-    from keypebble.core.policy import PolicyHandler
+    from keypebble.core.policy import Policy
 
-    handler = PolicyHandler(policy_path)
+    handler = Policy.from_file(str(policy_path))
     app.policy_handler = handler
 
     # Patch handler.allowed_access to return a known value
@@ -214,11 +217,11 @@ def test_v2_token_policy_generate_mode(client, app):
 
 def test_v2_token_policy_but_no_scopes(client, tmp_path, app):
     """If a policy exists but no scopes are provided, access should be empty."""
-    from keypebble.core.policy import PolicyHandler
+    from keypebble.core.policy import Policy
 
     policy_file = tmp_path / "empty_policy.yaml"
     policy_file.write_text("users: {}")
-    app.policy_handler = PolicyHandler(policy_file)
+    app.policy_handler = Policy.from_file(str(policy_file))
     headers = {"X-Authenticated-User": "tester"}
     resp = client.get("/v2/token?service=test-registry", headers=headers)
     data = resp.get_json()
@@ -242,9 +245,9 @@ def test_v2_token_unknown_user_returns_403(client, tmp_path, app):
     )
 
     # Attach handler so the app thinks policy is active
-    from keypebble.core.policy import PolicyHandler
+    from keypebble.core.policy import Policy
 
-    app.policy_handler = PolicyHandler(policy_path)
+    app.policy_handler = Policy.from_file(str(policy_path))
     app.config["POLICY_PATH"] = str(policy_path)
 
     # Call with an unknown user
@@ -261,3 +264,96 @@ def test_v2_token_unknown_user_returns_403(client, tmp_path, app):
     assert data["error"] == "unauthorized"
     assert "not found" in data["message"]
     assert "bob" in data["message"]
+
+
+# ---------------------------------------------------------------------------
+# Pure unit tests for build_v2_claims (no Flask required)
+# ---------------------------------------------------------------------------
+
+from keypebble.service.app import build_v2_claims
+
+
+def _now():
+    return datetime.now(timezone.utc)
+
+
+def _base_config():
+    return {"issuer": "test-issuer", "audience": "test-aud"}
+
+
+def test_build_v2_claims_no_policy_no_scopes():
+    claims = build_v2_claims(
+        user="alice",
+        requested_scopes=[],
+        policy=None,
+        policy_path=None,
+        generate_mode=False,
+        config=_base_config(),
+        service_audience=None,
+        now=_now(),
+        ttl=3600,
+    )
+    assert claims["access"] == []
+    assert claims["scope"] == ""
+    assert claims["sub"] == "alice"
+
+
+def test_build_v2_claims_no_policy_with_scopes():
+    claims = build_v2_claims(
+        user="alice",
+        requested_scopes=["repository:foo/bar:pull"],
+        policy=None,
+        policy_path=None,
+        generate_mode=False,
+        config=_base_config(),
+        service_audience=None,
+        now=_now(),
+        ttl=3600,
+    )
+    assert claims["access"] == [
+        {"type": "repository", "name": "foo/bar", "actions": ["pull"]}
+    ]
+
+
+def test_build_v2_claims_policy_enforcement():
+    mock_policy = MagicMock()
+    mock_policy.allowed_access.return_value = [
+        {"type": "repository", "name": "foo/bar", "actions": ["pull"]}
+    ]
+    claims = build_v2_claims(
+        user="alice",
+        requested_scopes=["repository:foo/bar:pull,push"],
+        policy=mock_policy,
+        policy_path=None,
+        generate_mode=False,
+        config=_base_config(),
+        service_audience=None,
+        now=_now(),
+        ttl=3600,
+    )
+    mock_policy.allowed_access.assert_called_once_with(
+        "alice", ["repository:foo/bar:pull,push"]
+    )
+    assert claims["access"] == [
+        {"type": "repository", "name": "foo/bar", "actions": ["pull"]}
+    ]
+
+
+def test_build_v2_claims_generate_mode_unknown_user(tmp_path):
+    policy_path = tmp_path / "policy.yaml"
+    policy_path.write_text(
+        "users:\n  alice:\n    namespace: alice\n    repos: []\n    actions: []\n"
+    )
+    mock_policy = MagicMock()
+    with pytest.raises(ValueError, match="not found"):
+        build_v2_claims(
+            user="unknown",
+            requested_scopes=[],
+            policy=mock_policy,
+            policy_path=str(policy_path),
+            generate_mode=True,
+            config=_base_config(),
+            service_audience=None,
+            now=_now(),
+            ttl=3600,
+        )
