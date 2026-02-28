@@ -1,7 +1,10 @@
+services:
   nginx:
     image: nginx:1.29.3
     container_name: nginx
     restart: always
+    depends_on:
+      - keypebble
     ports:
       - "443:443"
       - "8081:8081"
@@ -12,7 +15,6 @@
       REGISTRY_HOST: registry
       REGISTRY_PORT: 5000
     volumes:
-      # certificates and logs still mounted
       - ./certs/fullchain.cer:/etc/nginx/certs/fullchain.pem
       - ./certs/registry.example.com.key:/etc/nginx/certs/privkey.pem
       - ./nginx_logs:/var/log/nginx
@@ -51,3 +53,5 @@
 
       exec nginx -g 'daemon off;'
       "
+    networks:
+      - keypebble_net

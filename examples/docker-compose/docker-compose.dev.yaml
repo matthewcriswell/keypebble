@@ -1,0 +1,13 @@
+services:
+  keypebble:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    volumes:
+      - ../../examples:/etc/keypebble:ro
+    command: >
+      keypebble serve
+      --config /etc/keypebble/config.dev.yaml
+      --policy /etc/keypebble/policy.yaml
+    ports:
+      - "8080:8080"

@@ -1,3 +1,53 @@
+## Usage
+
+The compose setup uses a base file for shared infrastructure plus individual service files layered in via `-f`.
+
+### Production (RS256, full stack)
+
+Requires certificates — see the cert setup sections below.
+
+```bash
+docker compose \
+  -f examples/docker-compose/docker-compose.yaml \
+  -f examples/docker-compose/keypebble.yaml \
+  -f examples/docker-compose/nginx.yaml \
+  -f examples/docker-compose/registry.yaml \
+  up -d
+```
+
+### Dev (HS256, keypebble only — no certs needed)
+
+Uses `examples/config.dev.yaml` (HS256, `dev-only-secret`). No nginx or registry required.
+
+```bash
+docker compose \
+  -f examples/docker-compose/docker-compose.yaml \
+  -f examples/docker-compose/keypebble.yaml \
+  -f examples/docker-compose/docker-compose.dev.yaml \
+  up -d
+```
+
+Test the token endpoint:
+
+```bash
+# Health check
+curl http://localhost:8080/healthz
+
+# Token request (no scope)
+curl -H "X-Authenticated-User: alice" \
+  "http://localhost:8080/v2/token?service=registry.example.com"
+
+# Token request with scope
+curl -H "X-Authenticated-User: alice" \
+  "http://localhost:8080/v2/token?service=registry.example.com&scope=repository:alice-space/app-api:pull"
+```
+
+> **Note:** The Docker registry only supports RSA token verification, so HS256 dev mode is useful
+> for testing keypebble's token endpoint directly. For the full registry flow, use the production
+> stack with RS256 certificates.
+
+---
+
 ## How to make a selfsigned cert
 
 ### Create a Root Certificate Authority

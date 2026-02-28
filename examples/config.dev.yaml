@@ -6,5 +6,5 @@ issuer: "registry.example.com"
 audience: "registry.example.com"
 default_ttl_seconds: 3600
 
-algorithm: "RS256"
-rs256_private_key: "/etc/keypebble/keypebble-private.pem"
+algorithm: "HS256"
+hs256_secret: "dev-only-secret"

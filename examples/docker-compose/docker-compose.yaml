@@ -1,0 +1,6 @@
+networks:
+  keypebble_net:
+    driver: bridge
+
+volumes:
+  registry_data:
