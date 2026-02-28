@@ -9,9 +9,7 @@ def test_single_scope():
 
 
 def test_multiple_scopes():
-    result = parse_scopes(
-        ["repository:foo/bar:pull", "repository:foo/baz:pull,push"]
-    )
+    result = parse_scopes(["repository:foo/bar:pull", "repository:foo/baz:pull,push"])
     assert result == [
         {"type": "repository", "name": "foo/bar", "actions": ["pull"]},
         {"type": "repository", "name": "foo/baz", "actions": ["pull", "push"]},

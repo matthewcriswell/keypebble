@@ -5,6 +5,8 @@ from unittest.mock import MagicMock
 import jwt
 import pytest
 
+from keypebble.service.app import build_v2_claims
+
 
 def _decode(token, app):
     return jwt.decode(
@@ -269,8 +271,6 @@ def test_v2_token_unknown_user_returns_403(client, tmp_path, app):
 # ---------------------------------------------------------------------------
 # Pure unit tests for build_v2_claims (no Flask required)
 # ---------------------------------------------------------------------------
-
-from keypebble.service.app import build_v2_claims
 
 
 def _now():

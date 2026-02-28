@@ -183,6 +183,10 @@ make check
 make clean
 ```
 
+### Code style
+
+Formatting is handled by **Black** (line length 88) and linting by **Ruff** (rules `E`, `F`, `I`; `E501` suppressed). Both are configured in `pyproject.toml`. Always run `make fmt test` before committing — `make fmt` applies Black and Ruff auto-fixes, and `make lint` will catch anything that needs manual attention (e.g. unsorted imports, mid-file imports).
+
 Typical loop before committing:
 ```bash
 make fmt test
@@ -194,7 +198,6 @@ You can also run all checks at once:
 ```bash
 make check
 ```
-These commands ensure consistent formatting (via Black), linting (via Ruff), and test coverage (pytest) before each commit.
 
 ---
 
