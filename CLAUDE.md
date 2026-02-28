@@ -12,6 +12,16 @@ make check      # run pre-commit on all files
 
 All `make` targets use `.venv/bin/` directly — no need to activate the virtualenv first.
 
+## Code style
+
+Formatting and linting are enforced by **Black** and **Ruff** (configured in `pyproject.toml`):
+
+- Line length: **88** (Black default)
+- Ruff rule sets: `E` (pycodestyle errors), `F` (Pyflakes), `I` (isort) — `E501` is suppressed (Black owns line length)
+- Quote style: double; indent: spaces
+
+**Always run `make fmt test` before committing.** `make fmt` runs Black then Ruff with `--fix`; `make lint` runs Ruff check-only. A mid-file import or unsorted import block will fail CI via the `I` and `E402` rules.
+
 ## Running tests
 
 ```bash
