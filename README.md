@@ -39,33 +39,40 @@ keypebble/
 │   └── token-profile.md
 │
 ├── examples/
-│   └── example-config.yaml
+│   ├── config.yaml                # example service configuration
+│   ├── policy.yaml                # example policy file
+│   └── docker-compose/
 │
 ├── src/
 │   └── keypebble/
 │       ├── __init__.py
 │       │
-│       ├── cli.py                 # CLI interface
+│       ├── cli.py                 # CLI interface (issue / serve)
 │       ├── main.py                # unified entrypoint
-│       ├── config.py              # YAML/ENV config loader
+│       ├── config.py              # YAML config loader
 │       │
 │       ├── core/
 │       │   ├── __init__.py
 │       │   ├── claims.py          # ClaimBuilder
+│       │   ├── policy.py          # parse_scopes() + Policy class
 │       │   └── token.py           # issue_token / decode_token
 │       │
 │       └── service/
 │           ├── __init__.py
-│           └── app.py             # Flask app factory and routes
+│           └── app.py             # Flask app factory, build_v2_claims, routes
 │
 ├── tests/
 │   ├── conftest.py
-│   ├── test_claims.py
+│   ├── test_claims_builder.py
+│   ├── test_scopes.py
+│   ├── test_policy.py
+│   ├── test_cli.py
 │   ├── test_issue.py
 │   ├── test_service.py
 │   ├── test_token_decode.py
 │   └── test_v2_token.py
 │
+├── CLAUDE.md
 ├── Makefile
 ├── pyproject.toml
 ├── README.md
@@ -108,7 +115,7 @@ default_ttl_seconds: 14400
 
 # Choose one:
 # hs256_secret: "change-me-supersecret"
-rs256_private_key_path: "/keys/jwt_signing.key"
+rs256_private_key: "/keys/jwt_signing.key"
 
 kid: "v1"
 
@@ -129,38 +136,37 @@ Keypebble uses a modern Python packaging layout (pyproject.toml + src/ structure
 
 ### Setup
 
-1. Clone and create a virtual environment
+```bash
+git clone git@github.com:matthewcriswell/keypebble.git
+cd keypebble
+make setup
+```
 
-    ```bash
-    git clone git@github.com:matthewcriswell/keypebble.git
-    cd keypebble
-    python3.11 -m venv .venv
-    source .venv/bin/activate
-    python -m pip install --upgrade pip
-    ```
+`make setup` creates `.venv/`, upgrades pip, and installs the package in editable mode with all dev dependencies. Run `keypebble` to verify:
 
-2. Install in editable mode with dev dependencies
+```
+keypebble
+# usage: keypebble [-h] {issue,serve} ...
+# keypebble: error: the following arguments are required: command
+```
 
-    ```bash
-    pip install -e ".[dev]"
-    ```
-    This:
-    * Installs all runtime and developer dependencies
-    * Links the src/keypebble package into your environment
-    * Exposes the CLI command keypebble
+If you prefer to set up manually:
 
-    Run it to verify:
-    ```
-    keypebble
-    # usage: keypebble [-h] {issue,serve} ...
-    # keypebble: error: the following arguments are required: command
-    ```
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -e ".[dev]"
+```
 
 ### Typical development loop
 
 Keypebble includes a simple Makefile to standardize common development tasks.
 
 ```bash
+# Create virtualenv and install dependencies (first time only)
+make setup
+
 # Auto-format and lint code
 make fmt
 
