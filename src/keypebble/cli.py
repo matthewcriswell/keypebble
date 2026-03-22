@@ -43,6 +43,7 @@ def cmd_issue(args):
 def cmd_command(args):
     """Mint a signed command token."""
     config = load_config(args.config)
+    # NOTE: defaults to issuer identity; HTTP endpoint defaults to "anonymous"
     user = args.user or config.get("issuer", "keypebble")
     ttl = int(config.get("default_ttl_seconds", 3600))
     now = datetime.now(timezone.utc)

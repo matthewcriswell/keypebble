@@ -231,6 +231,15 @@ def test_command_token_allowed_custom_claims_does_not_strip_command(app):
     assert payload["command"] == "apt update"
 
 
+def test_command_token_expiration_seconds_respected(client, app):
+    resp = _post(client, expirationSeconds=120)
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["expires_in"] == 120
+    payload = _decode(data["token"], app)
+    assert payload["exp"] - payload["iat"] == 120
+
+
 def test_command_token_user_defaults_to_anonymous(client, app):
     resp = client.post(
         "/command/token",

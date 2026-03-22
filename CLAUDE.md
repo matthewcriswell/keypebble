@@ -28,7 +28,7 @@ Formatting and linting are enforced by **Black** and **Ruff** (configured in `py
 make test
 ```
 
-55 tests, all pure Python — no external services required. Tests that exercise Flask routes use `app.test_client()` via the `client` / `app` fixtures in `tests/conftest.py`. The growing set of pure unit tests (for `parse_scopes`, `build_v2_claims`, `allowed_custom_claims`) require neither Flask nor `tmp_path`.
+95 tests, all pure Python — no external services required. Tests that exercise Flask routes use `app.test_client()` via the `client` / `app` fixtures in `tests/conftest.py`. The growing set of pure unit tests (for `parse_scopes`, `build_v2_claims`, `build_command_claims`, `allowed_custom_claims`) require neither Flask nor `tmp_path`.
 
 ## Project layout
 
@@ -36,16 +36,17 @@ make test
 src/keypebble/
   __init__.py          # version
   config.py            # load_config() — YAML → dict
-  cli.py               # argparse CLI: `keypebble issue` and `keypebble serve`
+  cli.py               # argparse CLI: `keypebble issue`, `keypebble command`, and `keypebble serve`
   main.py              # unified entrypoint
   core/
-    __init__.py        # re-exports issue_token
+    __init__.py        # re-exports issue_token, build_command_claims
     claims.py          # ClaimBuilder — builds JWT claim dicts from a mapping
+    command.py         # build_command_claims() — pure function for command token profile
     policy.py          # parse_scopes() + Policy class
     token.py           # issue_token() / decode_token()
   service/
     __init__.py
-    app.py             # Flask app factory, build_v2_claims(), v2_token route
+    app.py             # Flask app factory, build_v2_claims(), v2_token, command_token routes
 
 tests/
   conftest.py          # app / client / config fixtures (Flask test client)
@@ -55,6 +56,7 @@ tests/
   test_issue.py
   test_token_decode.py
   test_v2_token.py     # Flask client tests + pure unit tests for build_v2_claims
+  test_command_token.py # pure + Flask + CLI tests for command token profile
   test_cli.py
   test_service.py
 ```
@@ -68,18 +70,23 @@ tests/
   - `policy.allowed_access(user, scopes)` — filters requested scopes against the user's policy entry.
   - `policy.generate_for(user)` — generates full claims from policy; raises `ValueError` if user not found.
 
+### `core/command.py`
+- **`build_command_claims(user, command, target, config, now, ttl, jti_factory) -> dict`** — pure function; assembles JWT claims for a command token. `jti_factory` is injectable for deterministic testing (defaults to `uuid4().hex`). `aud` is set from `target`, not from config `audience`.
+
 ### `core/token.py`
 - **`issue_token(config, custom_claims)`** — signs a JWT (HS256 or RS256). If `allowed_custom_claims` is present in config, custom claims are filtered to that allowlist before the payload is assembled. Standard registered claims (`iss`, `aud`, `iat`, etc.) come from `config` and are never filtered.
 
 ### `service/app.py`
 - **`build_v2_claims(...) -> dict`** — pure function (no Flask); encapsulates scope resolution, policy dispatch, and claim assembly for the Docker registry token flow.
 - **`v2_token`** — thin HTTP adapter: parse headers/args → `build_v2_claims` → catch `ValueError` → `issue_token` → return JSON.
+- **`command_token`** — `POST /command/token` endpoint; validates target/command, delegates to `build_command_claims` from `core/`, returns token + `jti` for nonce tracking. Bypasses `allowed_custom_claims` filter (structured claims are trusted).
 - **`create_app(config, policy_path)`** — Flask application factory.
 
 ### `cli.py`
 - `keypebble issue` — issues a token directly; supports `--policy` and `--generate`.
+- `keypebble command` — mints a signed command token; `--target` and `--command` required, `--user` optional (defaults to config issuer). Note: `--command` uses `dest="cmd"` to avoid collision with the subparser `dest="command"`.
 - `keypebble serve` — starts the Flask server.
-- Imports from `core` only; does not import from `service`.
+- Imports from `core` only; does not import from `service` except for `create_app`.
 
 ## Config keys (YAML)
 
@@ -116,4 +123,5 @@ Scope format expected by `allowed_access`: `"type:registry/namespace/repo:action
 - New business logic goes in `core/`; Flask glue stays in `service/`.
 - Prefer pure functions testable without Flask. Use `app.test_client()` only for HTTP-layer concerns.
 - When patching `Policy` in tests: `patch("keypebble.cli.Policy")` and set `mock_class.from_file.return_value = mock_policy`.
+- Structured endpoints and CLI commands that build their own claims should strip `allowed_custom_claims` from the config before calling `issue_token()`, since the allowlist filter is intended for untrusted input via `/auth`.
 - PRs branch from `main`; no force push to `main`.

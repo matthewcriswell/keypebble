@@ -215,6 +215,7 @@ def command_token():
     if not command:
         return jsonify({"error": "command is required"}), 400
 
+    # NOTE: defaults to "anonymous"; CLI defaults to config issuer
     user = body.get("user", "anonymous")
     ttl = int(
         body.get("expirationSeconds")
