@@ -49,14 +49,17 @@ def cmd_command(args):
 
     claims = build_command_claims(
         user=user,
-        command=args.command,
+        command=args.cmd,
         target=args.target,
         config=config,
         now=now,
         ttl=ttl,
     )
 
-    token = issue_token(config, claims)
+    # Structured claim builders produce trusted claims — skip allowlist filter
+    issue_config = dict(config)
+    issue_config.pop("allowed_custom_claims", None)
+    token = issue_token(issue_config, claims)
     print(token)
 
 
@@ -95,7 +98,9 @@ def build_parser():
     p_cmd.add_argument(
         "--target", required=True, help="Target remote environment (maps to aud)"
     )
-    p_cmd.add_argument("--command", required=True, help="Command string to embed")
+    p_cmd.add_argument(
+        "--command", dest="cmd", required=True, help="Command string to embed"
+    )
     p_cmd.add_argument(
         "--user", help="Issuing user (maps to sub; defaults to config issuer)"
     )

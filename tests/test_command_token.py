@@ -221,6 +221,16 @@ def test_command_token_invalid_body_returns_400(client):
     assert resp.status_code == 400
 
 
+def test_command_token_allowed_custom_claims_does_not_strip_command(app):
+    """allowed_custom_claims filter must not drop the command claim."""
+    app.config["allowed_custom_claims"] = ["some_other_claim"]
+    client = app.test_client()
+    resp = _post(client, command="apt update")
+    assert resp.status_code == 200
+    payload = _decode(resp.get_json()["token"], app)
+    assert payload["command"] == "apt update"
+
+
 def test_command_token_user_defaults_to_anonymous(client, app):
     resp = client.post(
         "/command/token",
@@ -272,7 +282,7 @@ def test_cli_command_user_defaults_to_issuer(tmp_path):
     cfg_file = tmp_path / "config.yaml"
     cfg_file.write_text("issuer: my-control-plane\nhs256_secret: s3cret")
 
-    with patch("keypebble.cli.issue_token", return_value="tok"):
+    with patch("keypebble.cli.issue_token", return_value="tok") as mock_issue:
         args = cli.build_parser().parse_args(
             [
                 "command",
@@ -286,11 +296,28 @@ def test_cli_command_user_defaults_to_issuer(tmp_path):
         )
         args.func(args)
 
-    # build_command_claims was called inside cmd_command; verify via issue_token args
-    with patch("keypebble.cli.issue_token", return_value="tok") as mock_issue:
-        args.func(args)
     claims = mock_issue.call_args[0][1]
     assert claims["sub"] == "my-control-plane"
+
+
+def test_cli_command_dest_does_not_collide_with_subparser(tmp_path):
+    """--command flag uses dest='cmd', so args.command stays the subparser name."""
+    cfg_file = tmp_path / "config.yaml"
+    cfg_file.write_text("foo: bar")
+
+    args = cli.build_parser().parse_args(
+        [
+            "command",
+            "--config",
+            str(cfg_file),
+            "--target",
+            "edge-01",
+            "--command",
+            "echo hi",
+        ]
+    )
+    assert args.command == "command"  # subparser dest, not the flag value
+    assert args.cmd == "echo hi"  # flag value stored separately
 
 
 def test_cli_command_requires_target(tmp_path):

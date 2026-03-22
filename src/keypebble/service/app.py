@@ -222,16 +222,19 @@ def command_token():
     )
     now = datetime.now(timezone.utc)
 
+    cfg = dict(current_app.config)
     claims = build_command_claims(
         user=user,
         command=command,
         target=target,
-        config=dict(current_app.config),
+        config=cfg,
         now=now,
         ttl=ttl,
     )
 
-    token = issue_token(current_app.config, claims)
+    # Structured claim builders produce trusted claims — skip allowlist filter
+    cfg.pop("allowed_custom_claims", None)
+    token = issue_token(cfg, claims)
 
     return (
         jsonify(
