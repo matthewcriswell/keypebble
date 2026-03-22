@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, Flask, current_app, jsonify, make_response, request
 
-from keypebble.core import issue_token
+from keypebble.core import build_command_claims, issue_token
 from keypebble.core.policy import Policy, parse_scopes
 
 bp = Blueprint("basic", __name__)
@@ -194,6 +194,52 @@ def ksa_token(namespace: str, name: str):
                     "token": token,
                     "expirationTimestamp": expiry.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 },
+            }
+        ),
+        200,
+    )
+
+
+@bp.route("/command/token", methods=["POST"])
+def command_token():
+    """Issue a signed command token with an auto-generated nonce."""
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "invalid or missing request body"}), 400
+
+    target = body.get("target")
+    if not target:
+        return jsonify({"error": "target is required"}), 400
+
+    command = body.get("command")
+    if not command:
+        return jsonify({"error": "command is required"}), 400
+
+    user = body.get("user", "anonymous")
+    ttl = int(
+        body.get("expirationSeconds")
+        or current_app.config.get("default_ttl_seconds", 3600)
+    )
+    now = datetime.now(timezone.utc)
+
+    claims = build_command_claims(
+        user=user,
+        command=command,
+        target=target,
+        config=dict(current_app.config),
+        now=now,
+        ttl=ttl,
+    )
+
+    token = issue_token(current_app.config, claims)
+
+    return (
+        jsonify(
+            {
+                "token": token,
+                "jti": claims["jti"],
+                "expires_in": ttl,
+                "issued_at": now.isoformat(timespec="seconds"),
             }
         ),
         200,
