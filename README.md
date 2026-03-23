@@ -10,12 +10,12 @@ Loosely inspired by OpenStack’s Keystone in practice and by SQLite in spirit, 
 | Area | Decision |
 |------|-----------|
 | **Language / Runtime** | Python 3.11+ |
-| **Framework** | [Flask](https://flask.palletsprojects.com/) for early iterations (may evolve toward [Falcon](https://falcon.readthedocs.io/en/stable/) later) |
-| **Data Model** | Standard-library [`dataclasses`](https://docs.python.org/3/library/dataclasses.html) — avoiding third-party frameworks initially |
-| **Config Format** | YAML (`example-config.yaml`) for readability and easy gitops |
+| **Framework** | [Flask](https://flask.palletsprojects.com/) |
+| **Data Model** | Plain dicts and simple classes — no ORM or third-party data frameworks |
+| **Config Format** | YAML for readability and easy gitops |
 | **Token Types** | JWT (initially HS256 / RS256), with long-term goals to explore JWE and Fernet |
 | **Packaging** | `pyproject.toml` + setuptools, `src/` layout, wheel/distribution ready |
-| **Metrics** | OpenMetrics RED metrics (`Rate`, `Errors`, `Duration`) exposed at `/metrics` |
+| **Metrics** | Planned: OpenMetrics RED metrics (`Rate`, `Errors`, `Duration`) |
 | **License** | Apache 2.0 — permissive, business-friendly |
 
 ---
@@ -25,7 +25,7 @@ Loosely inspired by OpenStack’s Keystone in practice and by SQLite in spirit, 
 - Simplicity: Be easy to understand and predictable. Stick to well-understood, standard-library primitives wherever possible.
 - Ease of distribution: Installable via `pip install .` or as a minimal Docker image.
 - Extensibility: Architecture that can later grow to include JWE, Fernet, or persistent backends.
-- Observability: Include built-in RED metrics and health checks from the start.
+- Observability: Health checks from the start; RED metrics planned once core design stabilizes.
 
 ---
 
@@ -39,7 +39,9 @@ keypebble/
 │   └── token-profile.md
 │
 ├── examples/
-│   ├── config.yaml                # example service configuration
+│   ├── config.yaml                # RS256 production config
+│   ├── config.dev.yaml            # HS256 development config
+│   ├── config.ksa.yaml            # Kubernetes service account config
 │   ├── policy.yaml                # example policy file
 │   └── docker-compose/
 │
@@ -47,19 +49,20 @@ keypebble/
 │   └── keypebble/
 │       ├── __init__.py
 │       │
-│       ├── cli.py                 # CLI interface (issue / serve)
+│       ├── cli.py                 # CLI interface (issue / command / serve)
 │       ├── main.py                # unified entrypoint
 │       ├── config.py              # YAML config loader
 │       │
 │       ├── core/
 │       │   ├── __init__.py
 │       │   ├── claims.py          # ClaimBuilder
+│       │   ├── command.py         # build_command_claims()
 │       │   ├── policy.py          # parse_scopes() + Policy class
 │       │   └── token.py           # issue_token / decode_token
 │       │
 │       └── service/
 │           ├── __init__.py
-│           └── app.py             # Flask app factory, build_v2_claims, routes
+│           └── app.py             # Flask app factory, routes
 │
 ├── tests/
 │   ├── conftest.py
@@ -67,7 +70,9 @@ keypebble/
 │   ├── test_scopes.py
 │   ├── test_policy.py
 │   ├── test_cli.py
+│   ├── test_command_token.py
 │   ├── test_issue.py
+│   ├── test_ksa_token.py
 │   ├── test_service.py
 │   ├── test_token_decode.py
 │   └── test_v2_token.py
@@ -93,7 +98,7 @@ pip install -e .
 python -m build
 
 # run locally
-keypebble issue --config examples/example-config.yaml
+keypebble issue --config examples/config.yaml
 ```
 
 Minimal Docker image:
@@ -117,7 +122,7 @@ default_ttl_seconds: 14400
 # hs256_secret: "change-me-supersecret"
 rs256_private_key: "/keys/jwt_signing.key"
 
-kid: "v1"
+key_id: "v1"
 
 static_claims:
   scope: "controller:read controller:write"
@@ -186,6 +191,25 @@ keypebble issue --config config.yaml --policy policy.yaml \
 # Generate all claims from policy
 keypebble issue --config config.yaml --policy policy.yaml \
   --generate --claims '{"sub": "alice"}'
+```
+
+#### keypebble command
+
+Mints a signed command token and prints it to stdout. The token includes an auto-generated nonce (`jti`) for deduplication and request/response correlation.
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--config PATH` | Yes | Path to YAML config file |
+| `--target NAME` | Yes | Target remote environment (maps to `aud` claim) |
+| `--command STRING` | Yes | Command string to embed in the token |
+| `--user NAME` | No | Issuing user (maps to `sub`; defaults to config `issuer`) |
+
+```bash
+# Mint a command token
+keypebble command --config config.yaml \
+  --target edge-node-07 \
+  --command "apt update && apt upgrade -y" \
+  --user operator
 ```
 
 #### keypebble serve
@@ -284,6 +308,74 @@ curl -H "X-Authenticated-User: alice" -H "X-Policy-Generate: true" \
   "http://localhost:8080/v2/token?service=registry.example.com"
 ```
 
+#### `POST /command/token`
+
+Issues a signed command token with an auto-generated nonce (`jti`).
+
+**Request body (JSON):**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `target` | Yes | Target remote environment (maps to `aud`) |
+| `command` | Yes | Command string to embed |
+| `user` | No | Issuing user (maps to `sub`; defaults to `"anonymous"`) |
+| `expirationSeconds` | No | Token TTL override (defaults to `default_ttl_seconds`) |
+
+**Response (200):**
+
+```json
+{
+  "token": "<jwt>",
+  "jti": "a1b2c3d4...",
+  "expires_in": 3600,
+  "issued_at": "2025-01-01T00:00:00"
+}
+```
+
+The `jti` is returned at the top level so callers can track the nonce without decoding the token.
+
+**Error responses:** `400` (missing `target` or `command`, invalid body)
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:8080/command/token \
+  -H "Content-Type: application/json" \
+  -d '{"target": "edge-node-07", "command": "apt update", "user": "operator"}'
+```
+
+#### `POST /apis/authentication.k8s.io/v1/namespaces/<ns>/serviceaccounts/<name>/token`
+
+Kubernetes-style service account token endpoint. Mints a JWT that conforms to the KSA token structure.
+
+**Request body (JSON):**
+
+```json
+{
+  "apiVersion": "authentication.k8s.io/v1",
+  "kind": "TokenRequest",
+  "spec": {
+    "audiences": ["https://kubernetes.default.svc"],
+    "expirationSeconds": 3600
+  }
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "apiVersion": "authentication.k8s.io/v1",
+  "kind": "TokenRequest",
+  "status": {
+    "token": "<jwt>",
+    "expirationTimestamp": "2025-01-01T01:00:00Z"
+  }
+}
+```
+
+**Error responses:** `400` (missing body or `spec.audiences`)
+
 ---
 
 ### Policy file
@@ -345,7 +437,7 @@ make setup
 
 ```
 keypebble
-# usage: keypebble [-h] {issue,serve} ...
+# usage: keypebble [-h] {issue,command,serve} ...
 # keypebble: error: the following arguments are required: command
 ```
 
@@ -396,11 +488,13 @@ git commit -m "describe your change"
 ---
 
 ## Future Roadmap
+
+The project is actively working through real use cases (Docker registry auth, command tokens, KSA tokens) to determine the right design before optimizing. Near-term priorities:
+
+* Simplify early abstractions that were added before the tool's shape was clear
+* RED metrics (`/metrics` endpoint) once the core design stabilizes
+* GitHub Actions CI
 * JWE and Fernet token support
-* Persistent datastore (SQLite or Postgres)
-* Falcon backend for high-performance mode
-* Integration tests and OpenAPI spec generation
-* GitHub Actions CI / PyPI publishing
 * CLI for key rotation and token inspection
 
 ## License

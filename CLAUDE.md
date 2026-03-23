@@ -46,7 +46,7 @@ src/keypebble/
     token.py           # issue_token() / decode_token()
   service/
     __init__.py
-    app.py             # Flask app factory, build_v2_claims(), v2_token, command_token routes
+    app.py             # Flask app factory, v2/ksa/command token routes
 
 tests/
   conftest.py          # app / client / config fixtures (Flask test client)
@@ -56,6 +56,7 @@ tests/
   test_issue.py
   test_token_decode.py
   test_v2_token.py     # Flask client tests + pure unit tests for build_v2_claims
+  test_ksa_token.py    # Flask client tests + pure unit tests for build_ksa_claims
   test_command_token.py # pure + Flask + CLI tests for command token profile
   test_cli.py
   test_service.py
@@ -79,6 +80,8 @@ tests/
 ### `service/app.py`
 - **`build_v2_claims(...) -> dict`** — pure function (no Flask); encapsulates scope resolution, policy dispatch, and claim assembly for the Docker registry token flow.
 - **`v2_token`** — thin HTTP adapter: parse headers/args → `build_v2_claims` → catch `ValueError` → `issue_token` → return JSON.
+- **`build_ksa_claims(...) -> dict`** — pure function; assembles JWT claims for a Kubernetes service account token request.
+- **`ksa_token`** — `POST /apis/authentication.k8s.io/v1/namespaces/<ns>/serviceaccounts/<name>/token`; validates spec/audiences, delegates to `build_ksa_claims`.
 - **`command_token`** — `POST /command/token` endpoint; validates target/command, delegates to `build_command_claims` from `core/`, returns token + `jti` for nonce tracking. Bypasses `allowed_custom_claims` filter (structured claims are trusted).
 - **`create_app(config, policy_path)`** — Flask application factory.
 
