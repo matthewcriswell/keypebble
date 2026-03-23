@@ -1,8 +1,9 @@
 import argparse
 import json
+from datetime import datetime, timezone
 
 from keypebble.config import load_config
-from keypebble.core import issue_token
+from keypebble.core import build_command_claims, issue_token
 from keypebble.core.policy import Policy, parse_scopes
 from keypebble.service.app import create_app
 
@@ -39,6 +40,30 @@ def cmd_issue(args):
     print(token)
 
 
+def cmd_command(args):
+    """Mint a signed command token."""
+    config = load_config(args.config)
+    # NOTE: defaults to issuer identity; HTTP endpoint defaults to "anonymous"
+    user = args.user or config.get("issuer", "keypebble")
+    ttl = int(config.get("default_ttl_seconds", 3600))
+    now = datetime.now(timezone.utc)
+
+    claims = build_command_claims(
+        user=user,
+        command=args.cmd,
+        target=args.target,
+        config=config,
+        now=now,
+        ttl=ttl,
+    )
+
+    # Structured claim builders produce trusted claims — skip allowlist filter
+    issue_config = dict(config)
+    issue_config.pop("allowed_custom_claims", None)
+    token = issue_token(issue_config, claims)
+    print(token)
+
+
 def cmd_serve(args):
     """Run Keypebble in service mode (Flask API)."""
     config = load_config(args.config)
@@ -67,6 +92,20 @@ def build_parser():
     )
 
     p_issue.set_defaults(func=cmd_issue)
+
+    # keypebble command
+    p_cmd = subparsers.add_parser("command", help="Mint a signed command token")
+    p_cmd.add_argument("--config", required=True, help="Path to YAML configuration")
+    p_cmd.add_argument(
+        "--target", required=True, help="Target remote environment (maps to aud)"
+    )
+    p_cmd.add_argument(
+        "--command", dest="cmd", required=True, help="Command string to embed"
+    )
+    p_cmd.add_argument(
+        "--user", help="Issuing user (maps to sub; defaults to config issuer)"
+    )
+    p_cmd.set_defaults(func=cmd_command)
 
     # keypebble serve
     p_serve = subparsers.add_parser("serve", help="Run Keypebble service mode")
