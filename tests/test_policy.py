@@ -1,114 +1,187 @@
-from pathlib import Path
-
+import pytest
 import yaml
 
-from keypebble.core.policy import Policy
+from keypebble.core.policy import Policy, _has_wildcard, _matches_repo
+
+# ---------------------------------------------------------------------------
+# _has_wildcard / _matches_repo helpers
+# ---------------------------------------------------------------------------
 
 
-def make_policy(tmp_path: Path, data: dict) -> Path:
-    """Helper: write YAML policy file and return its path."""
-    path = tmp_path / "policy.yaml"
-    path.write_text(yaml.safe_dump(data))
-    return path
+def test_has_wildcard_star():
+    assert _has_wildcard("acme/*") is True
 
 
-def test_allowed_access_for_valid_namespace_and_repo(tmp_path):
-    """User is allowed pull on repos in their own namespace."""
-    policy_data = {
-        "users": {
-            "alice": {
-                "namespace": "alice-space",
-                "repos": ["app-api", "app-ui"],
-                "actions": ["pull"],
-            }
-        }
-    }
-    policy_path = make_policy(tmp_path, policy_data)
-    handler = Policy.from_file(str(policy_path))
-
-    scopes = ["repository:registry.example.com/alice-space/app-api:pull"]
-    result = handler.allowed_access("alice", scopes)
-
-    assert len(result) == 1
-    entry = result[0]
-    assert entry["type"] == "repository"
-    assert entry["name"].endswith("alice-space/app-api")
-    assert entry["actions"] == ["pull"]
+def test_has_wildcard_question():
+    assert _has_wildcard("acme/service-?") is True
 
 
-def test_denied_if_namespace_does_not_match(tmp_path):
-    """Requests outside the user namespace are denied."""
-    policy_data = {
-        "users": {
-            "alice": {
-                "namespace": "alice-space",
-                "repos": ["app-api"],
-                "actions": ["pull"],
-            }
-        }
-    }
-    policy_path = make_policy(tmp_path, policy_data)
-    handler = Policy.from_file(str(policy_path))
+def test_has_wildcard_bracket():
+    assert _has_wildcard("acme/service-[ab]") is True
 
-    scopes = ["repository:registry.example.com/bob-space/app-api:pull"]
-    result = handler.allowed_access("alice", scopes)
+
+def test_has_wildcard_literal():
+    assert _has_wildcard("acme/service-a") is False
+
+
+def test_matches_repo_exact():
+    assert _matches_repo("acme/service-a", "acme/service-a") is True
+
+
+def test_matches_repo_wildcard():
+    assert _matches_repo("acme/service-a", "acme/*") is True
+
+
+def test_matches_repo_wildcard_deep():
+    assert _matches_repo("acme/team/service-a", "acme/*") is True
+
+
+def test_matches_repo_no_match():
+    assert _matches_repo("other/thing", "acme/*") is False
+
+
+def test_matches_repo_single_segment():
+    assert _matches_repo("helm", "helm") is True
+
+
+def test_matches_repo_single_segment_no_match():
+    assert _matches_repo("helm", "nginx") is False
+
+
+# ---------------------------------------------------------------------------
+# allowed_access
+# ---------------------------------------------------------------------------
+
+
+def _policy(users: dict) -> Policy:
+    return Policy({"users": users})
+
+
+def test_exact_match_two_segments():
+    policy = _policy({"alice": {"repos": ["acme/service-a"], "actions": ["pull"]}})
+    result = policy.allowed_access("alice", ["repository:acme/service-a:pull"])
+    assert result == [
+        {"type": "repository", "name": "acme/service-a", "actions": ["pull"]}
+    ]
+
+
+def test_exact_match_single_segment():
+    policy = _policy({"alice": {"repos": ["helm"], "actions": ["pull"]}})
+    result = policy.allowed_access("alice", ["repository:helm:pull"])
+    assert result == [{"type": "repository", "name": "helm", "actions": ["pull"]}]
+
+
+def test_wildcard_match():
+    policy = _policy({"alice": {"repos": ["acme/*"], "actions": ["pull"]}})
+    result = policy.allowed_access("alice", ["repository:acme/service-a:pull"])
+    assert result == [
+        {"type": "repository", "name": "acme/service-a", "actions": ["pull"]}
+    ]
+
+
+def test_wildcard_no_overmatch():
+    policy = _policy({"alice": {"repos": ["acme/*"], "actions": ["pull"]}})
+    result = policy.allowed_access("alice", ["repository:other/thing:pull"])
     assert result == []
 
 
-def test_denied_if_repo_not_listed(tmp_path):
-    """Requests for unlisted repositories are denied."""
-    policy_data = {
-        "users": {
-            "alice": {
-                "namespace": "alice-space",
-                "repos": ["app-ui"],
-                "actions": ["pull"],
-            }
-        }
-    }
-    policy_path = make_policy(tmp_path, policy_data)
-    handler = Policy.from_file(str(policy_path))
-
-    scopes = ["repository:registry.example.com/alice-space/app-api:pull"]
-    result = handler.allowed_access("alice", scopes)
-    assert result == []
-
-
-def test_action_is_filtered_to_allowed_set(tmp_path):
-    """Only permitted actions are preserved in access list."""
-    policy_data = {
-        "users": {
-            "alice": {
-                "namespace": "alice-space",
-                "repos": ["app-api"],
-                "actions": ["pull"],
-            }
-        }
-    }
-    policy_path = make_policy(tmp_path, policy_data)
-    handler = Policy.from_file(str(policy_path))
-
-    scopes = ["repository:registry.example.com/alice-space/app-api:pull,push"]
-    result = handler.allowed_access("alice", scopes)
-
+def test_action_filtering():
+    policy = _policy({"alice": {"repos": ["acme/service-a"], "actions": ["pull"]}})
+    result = policy.allowed_access("alice", ["repository:acme/service-a:pull,push"])
     assert len(result) == 1
     assert result[0]["actions"] == ["pull"]
 
 
-def test_unknown_user_returns_empty_access_list(tmp_path):
-    """Unknown users have no permitted access."""
-    policy_data = {
-        "users": {
+def test_unknown_user_returns_empty():
+    policy = _policy({"alice": {"repos": ["acme/service-a"], "actions": ["pull"]}})
+    result = policy.allowed_access("unknown", ["repository:acme/service-a:pull"])
+    assert result == []
+
+
+def test_repo_not_matched():
+    policy = _policy({"alice": {"repos": ["acme/service-a"], "actions": ["pull"]}})
+    result = policy.allowed_access("alice", ["repository:acme/service-b:pull"])
+    assert result == []
+
+
+def test_multiple_scopes():
+    policy = _policy(
+        {
             "alice": {
-                "namespace": "alice-space",
-                "repos": ["app-api"],
+                "repos": ["helm", "acme/*"],
                 "actions": ["pull"],
             }
         }
-    }
-    policy_path = make_policy(tmp_path, policy_data)
-    handler = Policy.from_file(str(policy_path))
+    )
+    result = policy.allowed_access(
+        "alice",
+        ["repository:helm:pull", "repository:acme/service-a:pull"],
+    )
+    assert len(result) == 2
+    assert result[0]["name"] == "helm"
+    assert result[1]["name"] == "acme/service-a"
 
-    scopes = ["repository:registry.example.com/alice-space/app-api:pull"]
-    result = handler.allowed_access("unknown", scopes)
-    assert result == []
+
+# ---------------------------------------------------------------------------
+# generate_for
+# ---------------------------------------------------------------------------
+
+
+def test_generate_for_flat_repos():
+    policy = _policy(
+        {
+            "alice": {
+                "repos": ["helm", "acme/service-a"],
+                "actions": ["pull"],
+            }
+        }
+    )
+    result = policy.generate_for("alice")
+    assert result["sub"] == "alice"
+    assert result["access"] == [
+        {"type": "repository", "name": "helm", "actions": ["pull"]},
+        {"type": "repository", "name": "acme/service-a", "actions": ["pull"]},
+    ]
+    assert "repository:helm:pull" in result["scope"]
+    assert "repository:acme/service-a:pull" in result["scope"]
+
+
+def test_generate_for_skips_wildcards():
+    policy = _policy(
+        {
+            "alice": {
+                "repos": ["acme/*", "helm"],
+                "actions": ["pull"],
+            }
+        }
+    )
+    result = policy.generate_for("alice")
+    assert len(result["access"]) == 1
+    assert result["access"][0]["name"] == "helm"
+    assert "acme" not in result["scope"]
+
+
+def test_generate_for_unknown_user_raises():
+    policy = _policy({"alice": {"repos": ["helm"], "actions": ["pull"]}})
+    with pytest.raises(ValueError, match="not found"):
+        policy.generate_for("unknown")
+
+
+# ---------------------------------------------------------------------------
+# from_file
+# ---------------------------------------------------------------------------
+
+
+def test_from_file_loads_yaml(tmp_path):
+    path = tmp_path / "policy.yaml"
+    path.write_text(
+        yaml.safe_dump({"users": {"alice": {"repos": ["helm"], "actions": ["pull"]}}})
+    )
+    policy = Policy.from_file(str(path))
+    result = policy.allowed_access("alice", ["repository:helm:pull"])
+    assert len(result) == 1
+
+
+def test_from_file_missing_returns_empty(tmp_path):
+    policy = Policy.from_file(str(tmp_path / "nonexistent.yaml"))
+    assert policy.allowed_access("anyone", ["repository:foo:pull"]) == []

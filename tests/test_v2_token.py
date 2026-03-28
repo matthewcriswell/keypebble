@@ -240,8 +240,7 @@ def test_v2_token_unknown_user_returns_403(client, tmp_path, app):
         """
     users:
       alice:
-        namespace: "alice-space"
-        repos: ["app-api"]
+        repos: ["alice-space/app-api"]
         actions: ["pull"]
     """
     )
@@ -341,9 +340,7 @@ def test_build_v2_claims_policy_enforcement():
 
 def test_build_v2_claims_generate_mode_unknown_user(tmp_path):
     policy_path = tmp_path / "policy.yaml"
-    policy_path.write_text(
-        "users:\n  alice:\n    namespace: alice\n    repos: []\n    actions: []\n"
-    )
+    policy_path.write_text("users:\n  alice:\n    repos: []\n    actions: []\n")
     mock_policy = MagicMock()
     with pytest.raises(ValueError, match="not found"):
         build_v2_claims(
@@ -357,3 +354,14 @@ def test_build_v2_claims_generate_mode_unknown_user(tmp_path):
             now=_now(),
             ttl=3600,
         )
+
+
+def test_v2_token_response_contains_access_token(client):
+    """Response includes both 'token' and 'access_token' for containerd compat."""
+    headers = {"X-Authenticated-User": "tester"}
+    resp = client.get("/v2/token?service=test-registry", headers=headers)
+    data = resp.get_json()
+    assert resp.status_code == 200
+    assert "token" in data
+    assert "access_token" in data
+    assert data["token"] == data["access_token"]

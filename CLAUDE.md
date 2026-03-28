@@ -113,12 +113,18 @@ tests/
 ```yaml
 users:
   alice:
-    namespace: "alice-space"
-    repos: ["app-api", "app-ui"]
+    repos:
+      - "helm"
+      - "shared/*"
+      - "alice-space/app-api"
     actions: ["pull"]
 ```
 
-Scope format expected by `allowed_access`: `"type:registry/namespace/repo:action1,action2"`
+Repos use full path names relative to the registry root. Variable-depth names are supported (`helm`, `shared/platform`, `acme/service-a`). Wildcards use `fnmatch` syntax (`*`, `?`, `[...]`) and are resolved at policy-evaluation time — the token always contains literal repo names.
+
+Scope format expected by `allowed_access`: `"type:name:action1,action2"` (e.g. `"repository:acme/service-a:pull,push"`). The `name` can be any depth.
+
+`generate_for` skips wildcard entries since concrete repo names cannot be enumerated from patterns.
 
 ## Conventions
 
