@@ -1,0 +1,11 @@
+service:
+  host: "0.0.0.0"
+  port: 8080
+
+issuer: "registry.localhost"
+audience: "registry.localhost"
+default_ttl_seconds: 3600
+
+algorithm: "RS256"
+rs256_private_key: "/etc/keypebble/certs/registry.localhost-key.pem"
+x5c_chain_path: "/etc/keypebble/certs/registry.localhost.pem"

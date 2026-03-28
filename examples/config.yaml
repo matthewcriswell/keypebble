@@ -7,4 +7,5 @@ audience: "registry.example.com"
 default_ttl_seconds: 3600
 
 algorithm: "RS256"
-rs256_private_key: "/etc/keypebble/keypebble-private.pem"
+rs256_private_key: "/etc/keypebble/certs/keypebble-private.pem"
+x5c_chain_path: "/etc/keypebble/certs/keypebble-chain.pem"

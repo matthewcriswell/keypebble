@@ -3,11 +3,12 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile
-    volumes:
-      - ../../examples:/etc/keypebble:ro
+    container_name: keypebble
     command: >
       keypebble serve
       --config /etc/keypebble/config.dev.yaml
       --policy /etc/keypebble/policy.yaml
     ports:
       - "8080:8080"
+    volumes:
+      - ../../examples:/etc/keypebble:ro
