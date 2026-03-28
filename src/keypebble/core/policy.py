@@ -1,6 +1,20 @@
+from fnmatch import fnmatch
 from pathlib import Path
 
 import yaml
+
+
+def _has_wildcard(pattern: str) -> bool:
+    """Return True if pattern contains fnmatch special characters."""
+    return any(c in pattern for c in ("*", "?", "["))
+
+
+def _matches_repo(name: str, pattern: str) -> bool:
+    """Check if a repository name matches a policy pattern.
+
+    Supports exact matches and fnmatch-style wildcards (e.g. 'acme/*').
+    """
+    return fnmatch(name, pattern)
 
 
 def parse_scopes(scopes: list[str]) -> list[dict]:
@@ -39,49 +53,42 @@ class Policy:
         if not user_conf:
             return []
 
-        namespace = user_conf.get("namespace")
-        allowed_repos = set(user_conf.get("repos", []))
+        allowed_patterns = user_conf.get("repos", [])
         allowed_actions = set(user_conf.get("actions", []))
 
         access = []
-        for scope in scopes:
-            parts = scope.split(":", 2)
-            if len(parts) != 3:
-                continue
-
-            type_, name, actions_str = parts
-            actions = [a.strip() for a in actions_str.split(",") if a.strip()]
-
-            # Expected form: registry/namespace/repo
-            name_parts = name.split("/", 2)
-            if len(name_parts) < 3:
-                continue
-
-            _, ns, repo = name_parts
-
-            if ns == namespace and repo in allowed_repos:
-                permitted = [a for a in actions if a in allowed_actions]
+        for parsed in parse_scopes(scopes):
+            repo_name = parsed["name"]
+            if any(_matches_repo(repo_name, pat) for pat in allowed_patterns):
+                permitted = [a for a in parsed["actions"] if a in allowed_actions]
                 if permitted:
-                    access.append({"type": type_, "name": name, "actions": permitted})
+                    access.append(
+                        {
+                            "type": parsed["type"],
+                            "name": repo_name,
+                            "actions": permitted,
+                        }
+                    )
         return access
 
     def generate_for(self, user: str) -> dict:
-        """Generate claims for user. Raises ValueError if user not found."""
+        """Generate claims for user. Raises ValueError if user not found.
+        Wildcard patterns are skipped (cannot enumerate concrete repos).
+        """
         users = self.data.get("users", {})
         entry = users.get(user)
         if not entry:
             raise ValueError(f"User '{user}' not found in policy")
 
-        namespace = entry.get("namespace")
         repos = entry.get("repos", [])
         actions = entry.get("actions", [])
 
+        concrete_repos = [r for r in repos if not _has_wildcard(r)]
+
         access = [
-            {"type": "repository", "name": f"{namespace}/{r}", "actions": actions}
-            for r in repos
+            {"type": "repository", "name": r, "actions": actions}
+            for r in concrete_repos
         ]
-        scopes = " ".join(
-            f"repository:{namespace}/{r}:{','.join(actions)}" for r in repos
-        )
+        scopes = " ".join(f"repository:{r}:{','.join(actions)}" for r in concrete_repos)
 
         return {"sub": user, "access": access, "scope": scopes}

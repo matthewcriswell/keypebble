@@ -116,6 +116,7 @@ def v2_token():
         jsonify(
             {
                 "token": token,
+                "access_token": token,
                 "expires_in": ttl,
                 "issued_at": now.isoformat(timespec="seconds"),
                 "nbf": now,

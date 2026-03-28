@@ -380,23 +380,26 @@ Kubernetes-style service account token endpoint. Mints a JWT that conforms to th
 
 ### Policy file
 
-The policy file controls which users can access which repositories and with what actions. Requested scopes are filtered against the policy; `X-Policy-Generate: true` generates the full claim set from the policy without requiring a scope request.
+The policy file controls which users can access which repositories and with what actions. Requested scopes are filtered against the policy; only matching repos and permitted actions are included in the token.
 
 ```yaml
 users:
   alice:
-    namespace: "alice-space"
-    repos: ["app-api", "app-ui"]
+    repos:
+      - "helm"
+      - "shared/*"
+      - "alice-space/app-api"
+      - "alice-space/app-ui"
     actions: ["pull"]
-  bob:
-    namespace: "bob-space"
-    repos: ["app-api"]
+  ci-bot:
+    repos:
+      - "acme/*"
     actions: ["pull", "push"]
 ```
 
-- `namespace` — Docker namespace; incoming scopes are matched as `registry/<namespace>/<repo>`
-- `repos` — allowed repository names within the namespace
+- `repos` — full repository paths relative to the registry root; supports variable depth (`helm`, `shared/platform`, `acme/service-a`) and `fnmatch`-style wildcards (`acme/*`)
 - `actions` — allowed actions; any actions beyond this list are stripped from the token
+- Wildcards are resolved at policy-evaluation time — the token always contains the literal repo name from the client's request
 
 See [`examples/policy.yaml`](examples/policy.yaml) for a full example.
 
