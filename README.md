@@ -407,19 +407,27 @@ See [`examples/policy.yaml`](examples/policy.yaml) for a full example.
 
 ### Docker Compose example
 
-For a full working Docker registry with token-based authorization — keypebble, nginx (TLS termination + auth proxy), and the distribution registry — see [`examples/docker-compose/`](examples/docker-compose/).
+See [`examples/docker-compose/`](examples/docker-compose/) for full setup instructions. Three standalone compose files are provided:
 
-A dev mode (HS256, no certs) lets you test the token endpoint locally without any certificate setup:
+**Local dev** (full stack with mkcert certs — keypebble, nginx, registry):
 
 ```bash
-docker compose \
-  -f examples/docker-compose/docker-compose.yaml \
-  -f examples/docker-compose/keypebble.yaml \
-  -f examples/docker-compose/docker-compose.dev.yaml \
-  up -d
+examples/docker-compose/local_setup.sh
+docker compose -f examples/docker-compose/docker-compose.local.yaml up -d --build
+```
 
+**Dev mode** (HS256, keypebble only, no certs):
+
+```bash
+docker compose -f examples/docker-compose/docker-compose.dev.yaml up -d --build
 curl -H "X-Authenticated-User: alice" \
   "http://localhost:8080/v2/token?service=registry.example.com&scope=repository:alice-space/app-api:pull"
+```
+
+**Production** (pre-built image, real certs at `/etc/keypebble/`):
+
+```bash
+docker compose -f examples/docker-compose/docker-compose.yaml up -d
 ```
 
 ---

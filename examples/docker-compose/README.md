@@ -1,142 +1,174 @@
-## Usage
+# Docker Compose Examples
 
-The compose setup uses a base file for shared infrastructure plus individual service files layered in via `-f`.
+Three standalone compose files for running keypebble with a Docker registry.
 
-### Production (RS256, full stack)
+| File | Use case |
+|------|----------|
+| `docker-compose.local.yaml` | Local dev — full stack, mkcert certs, builds from source |
+| `docker-compose.dev.yaml` | Dev — keypebble only, HS256, no certs |
+| `docker-compose.yaml` | Production — full stack, pre-built image, real certs |
 
-Requires certificates — see the cert setup sections below.
+---
+
+## Local development (full stack)
+
+One command sets up certs, demo users, and Docker CA trust:
 
 ```bash
-docker compose \
-  -f examples/docker-compose/docker-compose.yaml \
-  -f examples/docker-compose/keypebble.yaml \
-  -f examples/docker-compose/nginx.yaml \
-  -f examples/docker-compose/registry.yaml \
-  up -d
+./local_setup.sh
 ```
 
-### Dev (HS256, keypebble only — no certs needed)
-
-Uses `examples/config.dev.yaml` (HS256, `dev-only-secret`). No nginx or registry required.
+Then start the stack:
 
 ```bash
-docker compose \
-  -f examples/docker-compose/docker-compose.yaml \
-  -f examples/docker-compose/keypebble.yaml \
-  -f examples/docker-compose/docker-compose.dev.yaml \
-  up -d
+docker compose -f docker-compose.local.yaml up -d --build
 ```
 
-Test the token endpoint:
+Test with the demo users (defined in `examples/policy.yaml`):
 
 ```bash
-# Health check
+# bob has pull + push access to bob-space/*
+docker login registry.localhost -u bob -p bobrules
+docker pull alpine:latest
+docker tag alpine:latest registry.localhost/bob-space/app-api:test
+docker push registry.localhost/bob-space/app-api:test
+
+# alice has pull-only access to alice-space/*
+docker login registry.localhost -u alice -p swordfish123
+docker pull registry.localhost/bob-space/app-api:test  # denied (not her namespace)
+```
+
+Teardown:
+
+```bash
+docker compose -f docker-compose.local.yaml down -v
+```
+
+### What `local_setup.sh` does
+
+1. Checks for prerequisites (`mkcert`, `htpasswd`, `docker`)
+2. Installs the mkcert local CA into your system trust store (`mkcert -install`)
+3. Generates a TLS certificate for `registry.localhost`
+4. Copies the root CA into `certs/`
+5. Creates an htpasswd file with demo users (alice, bob)
+6. Configures Docker to trust the local CA:
+   - **macOS**: copies to `~/.docker/certs.d/registry.localhost/ca.crt`
+   - **Linux**: copies to `/etc/docker/certs.d/registry.localhost/ca.crt` (uses sudo)
+
+The script is idempotent — safe to run multiple times.
+
+---
+
+## Dev mode (keypebble only)
+
+No certs needed. Uses HS256 with a hardcoded dev secret.
+
+```bash
+docker compose -f docker-compose.dev.yaml up -d --build
+```
+
+Test the token endpoint directly:
+
+```bash
 curl http://localhost:8080/healthz
 
-# Token request (no scope)
-curl -H "X-Authenticated-User: alice" \
-  "http://localhost:8080/v2/token?service=registry.example.com"
-
-# Token request with scope
 curl -H "X-Authenticated-User: alice" \
   "http://localhost:8080/v2/token?service=registry.example.com&scope=repository:alice-space/app-api:pull"
 ```
 
-> **Note:** The Docker registry only supports RSA token verification, so HS256 dev mode is useful
-> for testing keypebble's token endpoint directly. For the full registry flow, use the production
-> stack with RS256 certificates.
+> **Note:** The Docker registry only supports RSA token verification, so HS256 dev mode is
+> useful for testing keypebble's token endpoint directly — not for the full registry flow.
 
 ---
 
-## How to make a selfsigned cert
+## Production
 
-### Create a Root Certificate Authority
-1. Generate root CA key
+Prerequisites:
+
+- `keypebble:latest` image built and available
+- TLS certificates at `/etc/keypebble/certs/` (see certificate setup below)
+- `config.yaml` and `policy.yaml` at `/etc/keypebble/`
+- `htpasswd` file at `/etc/keypebble/certs/htpasswd`
+
 ```bash
-openssl genrsa -out rootCA.key 4096
+docker compose up -d
 ```
 
-2. Self-sign the CA certificate (valid 10 years)
+The production compose file is the default (`docker-compose.yaml`), so no `-f` flag is needed when running from this directory.
+
+---
+
+## Certificate setup
+
+### Local development (mkcert)
+
+Handled automatically by `local_setup.sh`. See [mkcert](https://github.com/FiloSottile/mkcert) for details.
+
+### Self-signed (production)
+
+Create a root CA:
+
 ```bash
+openssl genrsa -out rootCA.key 4096
 openssl req -x509 -new -nodes -key rootCA.key \
   -sha256 -days 3650 \
   -subj "/C=US/ST=Texas/L=Austin/O=Keypebble Root CA/CN=Keypebble Root CA" \
   -out rootCA.pem
 ```
 
-### Create a Server Key and CSR (Certificate Signing Request)
-3. Generate server private key
+Create a server certificate:
+
 ```bash
 openssl genrsa -out keypebble-private.pem 4096
-```
 
-4. Create a certificate signing request (CSR)
-```bash
 openssl req -new -key keypebble-private.pem \
-  -subj "/C=US/ST=Texas/L=Austin/O=Matt Co./CN=registry.example.com" \
+  -subj "/C=US/ST=Texas/L=Austin/O=Example/CN=registry.example.com" \
   -out keypebble.csr
-```
 
-
-### Create a Configuration for SubjectAltName (SAN)
-Create a temporary config file san.cnf:
-```bash
 cat > san.cnf <<EOF
 subjectAltName = @alt_names
 [alt_names]
 DNS.1 = registry.example.com
-DNS.2 = keypebble.local
-IP.1 = 127.0.0.1
 EOF
-```
 
-### Sign the Server Cert with the Root CA
-```bash
 openssl x509 -req -in keypebble.csr \
   -CA rootCA.pem -CAkey rootCA.key -CAcreateserial \
   -out keypebble-cert.pem -days 825 -sha256 \
   -extfile san.cnf
 ```
 
-### Verify and Combine Chain
-Verify it
-```bash
-openssl verify -CAfile rootCA.pem keypebble-cert.pem
-```
+Combine into a chain bundle (used by nginx and the x5c JWT header):
 
-Combine into a full chain bundle (useful for Registry)
 ```bash
 cat keypebble-cert.pem rootCA.pem > keypebble-chain.pem
 ```
 
+Copy to `/etc/keypebble/certs/`:
 
-## How to make a "real" cert
+```
+/etc/keypebble/
+  certs/
+    keypebble-private.pem   # RSA private key
+    keypebble-chain.pem     # cert + CA chain (for nginx fullchain + x5c)
+    rootCA.pem              # root CA (for registry ROOTCERTBUNDLE)
+    htpasswd                # basic auth users
+  config.yaml
+  policy.yaml
+```
 
-### Install acme.sh if not already
+### Let's Encrypt (production)
+
 ```bash
+# Install acme.sh
 curl https://get.acme.sh | sh
 ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt
-```
 
-### Issue an RSA cert for your domain
-```bash
+# Issue cert
 ~/.acme.sh/acme.sh --issue -d registry.example.com -w /var/www/html --keylength 4096
-```
 
-This creates:
-```bash
-~/.acme.sh/registry.example.com/
-  ├── registry.example.com.key   	# RSA private key
-  ├── registry.example.com.cer   	# leaf cert
-  ├── fullchain.cer                     # cert + intermediate chain
-  └── ca.cer                            # intermediate CA
-```
-
-
-Then export them to a stable system path:
-```bash
+# Install to /etc/keypebble
 ~/.acme.sh/acme.sh --install-cert -d registry.example.com \
-  --key-file       /etc/keypebble/keypebble-private.pem  \
-  --fullchain-file /etc/keypebble/keypebble-cert.pem     \
-  --reloadcmd      "docker compose restart registry keypebble"
+  --key-file       /etc/keypebble/certs/keypebble-private.pem  \
+  --fullchain-file /etc/keypebble/certs/keypebble-chain.pem    \
+  --reloadcmd      "docker compose restart nginx keypebble"
 ```
